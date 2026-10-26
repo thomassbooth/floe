@@ -57,15 +57,39 @@ type FocusWindow struct {
 	ID WindowID
 }
 
-// ResizeWindow moves the nearest divider of the focused window by Amount
-// cells in direction Dir.
+// ResizeWindow grows (Right, Down) or shrinks (Left, Up) the focused window
+// by Amount cells.
 type ResizeWindow struct {
 	Dir    Direction
 	Amount int
 }
 
-// CloseWindow closes the focused window and ends its pane's process.
-type CloseWindow struct{}
+// PlaceWindow moves and sizes a window. It is kept on screen.
+type PlaceWindow struct {
+	ID    WindowID
+	Frame Rect
+}
+
+// ResizeWindowEdge moves one edge of a window to Position, leaving the
+// opposite edge in place. Left and Up edges sit at Position; Right and Down
+// edges end just before it.
+type ResizeWindowEdge struct {
+	ID       WindowID
+	Edge     Direction
+	Position int
+}
+
+// ToggleMaximize makes a window fill the screen, or puts it back. A zero ID
+// means the focused window.
+type ToggleMaximize struct {
+	ID WindowID
+}
+
+// CloseWindow closes a window and ends its pane's process. A zero ID means
+// the focused window.
+type CloseWindow struct {
+	ID WindowID
+}
 
 // SendKey forwards a key press to the focused pane.
 type SendKey struct {
@@ -77,16 +101,19 @@ type Paste struct {
 	Text string
 }
 
-func (SetArea) command()        {}
-func (AttachSession) command()  {}
-func (CreateSession) command()  {}
-func (SwitchSession) command()  {}
-func (RenameSession) command()  {}
-func (SplitWindow) command()    {}
-func (FocusDirection) command() {}
-func (FocusWindow) command()    {}
-func (ResizeWindow) command()   {}
-func (CloseWindow) command()    {}
-func (KillSession) command()    {}
-func (SendKey) command()        {}
-func (Paste) command()          {}
+func (SetArea) command()          {}
+func (AttachSession) command()    {}
+func (CreateSession) command()    {}
+func (SwitchSession) command()    {}
+func (RenameSession) command()    {}
+func (SplitWindow) command()      {}
+func (FocusDirection) command()   {}
+func (FocusWindow) command()      {}
+func (ResizeWindow) command()     {}
+func (PlaceWindow) command()      {}
+func (ResizeWindowEdge) command() {}
+func (ToggleMaximize) command()   {}
+func (CloseWindow) command()      {}
+func (KillSession) command()      {}
+func (SendKey) command()          {}
+func (Paste) command()            {}

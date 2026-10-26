@@ -27,6 +27,7 @@ func DefaultKeymap() Keymap {
 			{Keys: []domain.Key{char('K'), special(domain.KeyUp, domain.ModShift)}, Command: domain.ResizeWindow{Dir: domain.Up, Amount: resizeStep}, Help: "resize up", Repeat: true},
 			{Keys: []domain.Key{char('L'), special(domain.KeyRight, domain.ModShift)}, Command: domain.ResizeWindow{Dir: domain.Right, Amount: resizeStep}, Help: "resize right", Repeat: true},
 
+			{Keys: []domain.Key{char('z')}, Command: domain.ToggleMaximize{}, Help: "maximize"},
 			{Keys: []domain.Key{char('x')}, Command: domain.CloseWindow{}, Help: "close"},
 
 			{Keys: []domain.Key{char('s')}, Action: ActionSessionSwitcher, Help: "sessions"},

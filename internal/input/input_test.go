@@ -66,7 +66,7 @@ func TestEscapeAndUnknownKeysCancelThePrefix(t *testing.T) {
 		{prefix, nil, Prefix},
 		{special(domain.KeyEscape, 0), nil, Normal},
 		{prefix, nil, Prefix},
-		{char('z'), nil, Normal},
+		{char('y'), nil, Normal},
 	})
 }
 

@@ -47,6 +47,8 @@ type Model struct {
 	// Overlays that take the keyboard while open; nil when closed.
 	switcher *switcher
 	prompt   *prompt
+	// drag is the window move or resize in progress, if any.
+	drag *drag
 
 	// Err is set when the client was detached because of a failure.
 	Err error
@@ -86,15 +88,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backend.Apply(domain.Paste{Text: msg.Content})
 
 	case tea.MouseClickMsg:
-		mouse := msg.Mouse()
-		if m.switcher != nil {
-			m.switcher = nil
-		} else if mouse.Button == tea.MouseLeft {
-			if w, ok := m.snap.WindowAt(mouse.X, mouse.Y); ok {
-				m.keys.Reset()
-				m.backend.Apply(domain.FocusWindow{ID: w.ID})
-			}
-		}
+		m.mousePress(msg)
+
+	case tea.MouseMotionMsg:
+		m.mouseMotion(msg)
+
+	case tea.MouseReleaseMsg:
+		m.mouseRelease()
 
 	case eventMsg:
 		switch ev := msg.event.(type) {

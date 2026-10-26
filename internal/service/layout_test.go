@@ -29,7 +29,7 @@ func TestServiceSplitResizesExistingPanes(t *testing.T) {
 	}
 }
 
-func TestServiceResizeMovesDivider(t *testing.T) {
+func TestServiceKeyboardResizeShrinksFocusedWindow(t *testing.T) {
 	h := start(t, newFakeHost())
 	c := h.open()
 	c.apply(domain.SplitWindow{Dir: domain.Right})
@@ -37,10 +37,52 @@ func TestServiceResizeMovesDivider(t *testing.T) {
 
 	c.apply(domain.ResizeWindow{Dir: domain.Left, Amount: 10})
 	snap := c.layout()
-	if w := snap.Windows[1].Frame.W; w != 50 {
-		t.Fatalf("window 2 width = %d, want 50", w)
+	if w := snap.Windows[1].Frame.W; w != 30 {
+		t.Fatalf("window 2 width = %d, want 30", w)
 	}
-	if got := h.host.size(2); got != (domain.Size{W: 48, H: 22}) {
+	if got := h.host.size(2); got != (domain.Size{W: 28, H: 22}) {
 		t.Fatalf("pane 2 resized to %+v", got)
+	}
+}
+
+func TestServicePlacesAndResizesWindowsByEdge(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+
+	c.apply(domain.PlaceWindow{ID: 1, Frame: domain.Rect{X: 10, Y: 2, W: 40, H: 12}})
+	if snap := c.layout(); snap.Windows[0].Frame != (domain.Rect{X: 10, Y: 2, W: 40, H: 12}) {
+		t.Fatalf("frame = %+v", snap.Windows[0].Frame)
+	}
+	if got := h.host.size(1); got != (domain.Size{W: 38, H: 10}) {
+		t.Fatalf("pane resized to %+v", got)
+	}
+
+	c.apply(domain.ResizeWindowEdge{ID: 1, Edge: domain.Right, Position: 70})
+	if snap := c.layout(); snap.Windows[0].Frame.W != 60 {
+		t.Fatalf("frame = %+v", snap.Windows[0].Frame)
+	}
+	if got := h.host.size(1); got != (domain.Size{W: 58, H: 10}) {
+		t.Fatalf("pane resized to %+v", got)
+	}
+}
+
+func TestServiceTogglesMaximize(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right})
+	c.layoutUntil(windows(2))
+
+	c.apply(domain.ToggleMaximize{})
+	snap := c.layout()
+	if w := snap.Windows[1]; !w.Maximized || w.Frame.W != 80 {
+		t.Fatalf("window = %+v", w)
+	}
+	if got := h.host.size(2); got != (domain.Size{W: 78, H: 22}) {
+		t.Fatalf("pane resized to %+v", got)
+	}
+
+	c.apply(domain.ToggleMaximize{ID: 2})
+	if w := c.layout().Windows[1]; w.Maximized || w.Frame.W != 40 {
+		t.Fatalf("window = %+v", w)
 	}
 }

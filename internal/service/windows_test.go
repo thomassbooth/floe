@@ -44,8 +44,30 @@ func TestServiceReportsFailedSplit(t *testing.T) {
 	}
 	// The failed split leaves the layout untouched; force a fresh one.
 	c.apply(domain.SetArea{Size: domain.Size{W: 60, H: 20}})
-	if snap := c.layout(); len(snap.Windows) != 1 || snap.Focused != 1 {
+	snap := c.layout()
+	if len(snap.Windows) != 1 || snap.Focused != 1 {
 		t.Fatalf("failed window should be removed, got %+v", snap)
+	}
+	if snap.Windows[0].Frame != (domain.Rect{W: 60, H: 20}) {
+		t.Fatalf("the split window should get its space back, got %+v", snap.Windows[0].Frame)
+	}
+}
+
+func TestServiceClosesWindowByID(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right})
+	c.layoutUntil(windows(2))
+
+	c.apply(domain.CloseWindow{ID: 1})
+	snap := c.layoutUntil(windows(1))
+	if snap.Windows[0].ID != 2 || h.host.running(1) {
+		t.Fatalf("window 1 should be closed, got %+v", snap)
+	}
+
+	c.apply(domain.CloseWindow{ID: 99})
+	if failed := c.failure(); !errors.Is(failed.Err, domain.ErrUnknownWindow) {
+		t.Fatalf("got %v", failed.Err)
 	}
 }
 

@@ -2,8 +2,8 @@ package service
 
 import "github.com/thomasbooth/multiplexer/internal/domain"
 
-// layoutService manages where windows sit and makes sure every pane's
-// screen size matches the space its window gives it.
+// layoutService moves and resizes windows and makes sure every pane's screen
+// size matches the space its window gives it.
 type layoutService struct {
 	host PaneHost
 	// sizes is the size each pane was last told about.
@@ -25,10 +25,34 @@ func (l *layoutService) setArea(sess *domain.Session, size domain.Size) bool {
 	return true
 }
 
-// resize moves the focused window's nearest divider. It reports whether the
-// layout changed.
+// resize grows or shrinks the focused window. It reports whether the layout
+// changed.
 func (l *layoutService) resize(sess *domain.Session, dir domain.Direction, amount int) bool {
 	return sess.Resize(dir, amount)
+}
+
+// place moves and sizes a window. It reports whether the layout changed.
+func (l *layoutService) place(sess *domain.Session, id domain.WindowID, frame domain.Rect) bool {
+	return sess.Place(id, frame)
+}
+
+// resizeEdge moves one edge of a window. It reports whether the layout
+// changed.
+func (l *layoutService) resizeEdge(sess *domain.Session, id domain.WindowID, edge domain.Direction, pos int) bool {
+	return sess.ResizeEdge(id, edge, pos)
+}
+
+// toggleMaximize maximizes or restores a window, or the focused one when id
+// is zero. It reports whether the layout changed.
+func (l *layoutService) toggleMaximize(sess *domain.Session, id domain.WindowID) bool {
+	if id == 0 {
+		w, ok := sess.Focused()
+		if !ok {
+			return false
+		}
+		id = w.ID
+	}
+	return sess.ToggleMaximize(id)
 }
 
 // contentSize returns the space a window currently has for its pane.

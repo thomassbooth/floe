@@ -1,6 +1,10 @@
 package service
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import (
+	"fmt"
+
+	"github.com/thomasbooth/multiplexer/internal/domain"
+)
 
 // windowService opens and closes windows and keeps them paired with running
 // panes: a window exists exactly as long as its pane's process does.
@@ -31,12 +35,23 @@ func (w *windowService) open(sess *domain.Session, dir domain.Direction) error {
 	return nil
 }
 
-// closeFocused ends the focused window's pane. The window itself closes
-// when the pane's exit is reported, the same path as a shell exiting.
-func (w *windowService) closeFocused(sess *domain.Session) {
-	if win, ok := sess.Focused(); ok {
-		w.host.Kill(win.Pane)
+// close ends a window's pane, or the focused window's when id is zero. The
+// window itself closes when the pane's exit is reported, the same path as a
+// shell exiting.
+func (w *windowService) close(sess *domain.Session, id domain.WindowID) error {
+	if id == 0 {
+		if win, ok := sess.Focused(); ok {
+			w.host.Kill(win.Pane)
+		}
+		return nil
 	}
+	for _, win := range sess.Snapshot().Windows {
+		if win.ID == id {
+			w.host.Kill(win.Pane)
+			return nil
+		}
+	}
+	return fmt.Errorf("close window %d: %w", id, domain.ErrUnknownWindow)
 }
 
 // paneExited closes the window showing a pane that has exited. It returns

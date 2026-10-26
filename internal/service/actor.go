@@ -147,7 +147,7 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		}
 		s.markDirty(sess.ID())
 	case domain.CloseWindow:
-		s.windows.closeFocused(sess)
+		return s.windows.close(sess, c.ID)
 	case domain.FocusDirection:
 		if s.focus.direction(sess, c.Dir) {
 			s.markDirty(sess.ID())
@@ -158,6 +158,18 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		}
 	case domain.ResizeWindow:
 		if s.layout.resize(sess, c.Dir, c.Amount) {
+			s.markDirty(sess.ID())
+		}
+	case domain.PlaceWindow:
+		if s.layout.place(sess, c.ID, c.Frame) {
+			s.markDirty(sess.ID())
+		}
+	case domain.ResizeWindowEdge:
+		if s.layout.resizeEdge(sess, c.ID, c.Edge, c.Position) {
+			s.markDirty(sess.ID())
+		}
+	case domain.ToggleMaximize:
+		if s.layout.toggleMaximize(sess, c.ID) {
 			s.markDirty(sess.ID())
 		}
 	case domain.SendKey:

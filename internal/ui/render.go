@@ -52,14 +52,37 @@ func (m Model) render() (string, *tea.Cursor) {
 	return canvas.Render(), cursor
 }
 
+// border is the set of characters a frame is drawn with.
+type border struct {
+	topLeft, topRight, bottomLeft, bottomRight, horizontal, vertical string
+}
+
+var (
+	roundedBorder = border{"╭", "╮", "╰", "╯", "─", "│"}
+	// heavyBorder marks the window being dragged.
+	heavyBorder = border{"┏", "┓", "┗", "┛", "━", "┃"}
+)
+
 func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 	f := w.Frame
 	if f.W < 2 || f.H < 2 {
 		return
 	}
+	// Clear the whole frame so windows behind never show through.
+	blank := uv.EmptyCell
+	for y := f.Y; y < f.Bottom(); y++ {
+		for x := f.X; x < f.Right(); x++ {
+			scr.SetCell(x, y, &blank)
+		}
+	}
+
 	style := uv.Style{Fg: m.theme.Border}
 	if w.Focused {
 		style.Fg = m.theme.Accent
+	}
+	b := roundedBorder
+	if m.drag != nil && m.drag.window == w.ID {
+		b = heavyBorder
 	}
 	set := func(x, y int, s string) {
 		c := uv.Cell{Content: s, Width: 1, Style: style}
@@ -68,20 +91,30 @@ func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 
 	right, bottom := f.Right()-1, f.Bottom()-1
 	for x := f.X + 1; x < right; x++ {
-		set(x, f.Y, "─")
-		set(x, bottom, "─")
+		set(x, f.Y, b.horizontal)
+		set(x, bottom, b.horizontal)
 	}
 	for y := f.Y + 1; y < bottom; y++ {
-		set(f.X, y, "│")
-		set(right, y, "│")
+		set(f.X, y, b.vertical)
+		set(right, y, b.vertical)
 	}
-	set(f.X, f.Y, "╭")
-	set(right, f.Y, "╮")
-	set(f.X, bottom, "╰")
-	set(right, bottom, "╯")
+	set(f.X, f.Y, b.topLeft)
+	set(right, f.Y, b.topRight)
+	set(f.X, bottom, b.bottomLeft)
+	set(right, bottom, b.bottomRight)
 
-	// Leave a corner and one line cell on each side of the title.
-	room := f.W - 4
+	// The title gets the top border between the left corner and the
+	// buttons, keeping one line cell on each side.
+	titleEnd := right - 1
+	if maxCol, closeCol, ok := buttons(f); ok {
+		set(maxCol-1, f.Y, " ")
+		set(maxCol, f.Y, "□")
+		set(closeCol-1, f.Y, " ")
+		set(closeCol, f.Y, "×")
+		set(closeCol+1, f.Y, " ")
+		titleEnd = maxCol - 2
+	}
+	room := titleEnd - (f.X + 2)
 	if room < 3 {
 		return
 	}

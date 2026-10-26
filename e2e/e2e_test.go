@@ -261,20 +261,19 @@ func TestSplitFocusAndClose(t *testing.T) {
 	}
 }
 
-func TestResizeMovesDivider(t *testing.T) {
+func TestKeyboardResizeGrowsFocusedWindow(t *testing.T) {
 	tm := launch(t, 100, 30)
 	tm.waitFor(" 1 sh ")
-	tm.waitPrompts(1)
 	tm.prefix("|")
 	tm.waitFor(" 2 sh ")
-	tm.waitPrompts(2)
 	tm.prefix("h")
 
-	before := column(tm.lines()[0], "╮╭")
+	// Window 1 is focused and on top; its top-right corner marks its width.
+	before := column(tm.lines()[0], "╮")
 	tm.prefix("L")
 	tm.send("LL") // repeat without the prefix
-	tm.waitUntil("divider to move right", func(string) bool {
-		return column(tm.lines()[0], "╮╭") == before+6
+	tm.waitUntil("window 1 to grow by 6", func(string) bool {
+		return column(tm.lines()[0], "╮") == before+6
 	})
 	tm.waitFor("REPEAT")
 	tm.send("\x1b")

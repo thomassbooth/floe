@@ -20,6 +20,9 @@ type WindowView struct {
 	Frame   Rect
 	Content Rect
 	Focused bool
+	// Maximized is set while the window fills the screen and remembers
+	// where to go back to.
+	Maximized bool
 }
 
 // WindowAt returns the front-most window whose frame contains the cell at
