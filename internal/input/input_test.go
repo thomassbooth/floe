@@ -10,7 +10,7 @@ var prefix = domain.Key{Code: 'b', Mod: domain.ModCtrl}
 
 type step struct {
 	key  domain.Key
-	want domain.Command // nil means no command
+	want any // a domain.Command, an Action, or nil for nothing
 	mode Mode
 }
 
@@ -19,11 +19,18 @@ func run(t *testing.T, steps []step) {
 	m := NewMachine(DefaultKeymap())
 	for i, s := range steps {
 		got, ok := m.Handle(s.key)
-		if (s.want == nil) == ok {
-			t.Fatalf("step %d (%s): got command %v (%v), want %v", i, s.key, got, ok, s.want)
+		var want Result
+		switch w := s.want.(type) {
+		case domain.Command:
+			want.Command = w
+		case Action:
+			want.Action = w
 		}
-		if ok && got != s.want {
-			t.Fatalf("step %d (%s): got %#v, want %#v", i, s.key, got, s.want)
+		if (s.want == nil) == ok {
+			t.Fatalf("step %d (%s): got %+v (%v), want %v", i, s.key, got, ok, s.want)
+		}
+		if ok && got != want {
+			t.Fatalf("step %d (%s): got %#v, want %#v", i, s.key, got, want)
 		}
 		if m.Mode() != s.mode {
 			t.Fatalf("step %d (%s): mode %v, want %v", i, s.key, m.Mode(), s.mode)
@@ -82,5 +89,18 @@ func TestRepeatModeHandsPrefixBackToNormal(t *testing.T) {
 		{char('L'), domain.ResizeWindow{Dir: domain.Right, Amount: resizeStep}, Repeat},
 		{prefix, nil, Prefix},
 		{char('-'), domain.SplitWindow{Dir: domain.Down}, Normal},
+	})
+}
+
+func TestSessionBindings(t *testing.T) {
+	run(t, []step{
+		{prefix, nil, Prefix},
+		{char('s'), ActionSessionSwitcher, Normal},
+		{prefix, nil, Prefix},
+		{char('C'), domain.CreateSession{}, Normal},
+		{prefix, nil, Prefix},
+		{char('$'), ActionRenameSession, Normal},
+		{prefix, nil, Prefix},
+		{char(')'), ActionNextSession, Normal},
 	})
 }

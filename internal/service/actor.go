@@ -8,99 +8,274 @@ import (
 	"github.com/thomasbooth/multiplexer/internal/domain"
 )
 
-// errEnding is returned for commands that would add to a session that is
-// shutting down.
-var errEnding = errors.New("session is ending")
+var (
+	// errEnding is returned for commands that would add to a session that
+	// is shutting down.
+	errEnding = errors.New("session is ending")
+	// errNotAttached is returned for window commands from a client that is
+	// not viewing a session.
+	errNotAttached = errors.New("not attached to a session")
+)
 
-// Run applies commands until the session ends or ctx is cancelled. It is the
-// only goroutine that touches session state. The session starts its first
-// window once it knows its area from SetArea.
+type requestKind int
+
+const (
+	requestCommand requestKind = iota
+	requestConnect
+	requestDisconnect
+)
+
+// request is one item in the actor's mailbox.
+type request struct {
+	kind   requestKind
+	client domain.ClientID
+	handle *Client        // requestConnect
+	cmd    domain.Command // requestCommand
+}
+
+// Run serves requests until the last session ends or ctx is cancelled. It is
+// the only goroutine that touches service state.
 func (s *Service) Run(ctx context.Context) error {
-	defer close(s.events)
 	for !s.lifecycle.done() {
 		select {
 		case <-ctx.Done():
-			s.lifecycle.killAll()
+			s.sessions.killAll()
+			s.clients.detachAll(nil)
 			return ctx.Err()
 		case <-s.inbox.Ready():
-			for _, cmd := range s.inbox.Drain() {
-				s.dispatch(ctx, cmd)
+			for _, req := range s.inbox.Drain() {
+				s.handle(req)
 			}
 		case id := <-s.host.Exited():
 			s.paneExited(id)
+		case <-s.host.Changed():
+			s.paneOutput()
 		}
-		if s.dirty && !s.lifecycle.done() {
-			s.publish(ctx)
-		}
+		s.publish()
 	}
-	err := s.lifecycle.err()
-	s.emit(ctx, domain.SessionEnded{Err: err})
-	return err
+	s.clients.detachAll(nil)
+	return nil
 }
 
-// dispatch hands a command to the service responsible for it.
-func (s *Service) dispatch(ctx context.Context, cmd domain.Command) {
-	if s.lifecycle.done() {
-		return
+func (s *Service) handle(req request) {
+	switch req.kind {
+	case requestConnect:
+		s.clients.connect(req.handle)
+	case requestDisconnect:
+		if old := s.clients.detach(req.client, nil); old != 0 {
+			s.listChanged = true
+			s.refreshArea(old)
+		}
+	case requestCommand:
+		if !s.clients.connected(req.client) {
+			return
+		}
+		s.server.Touch(req.client)
+		if err := s.apply(req.client, req.cmd); err != nil {
+			s.clients.send(req.client, domain.CommandFailed{Command: req.cmd, Err: err})
+		}
+		// Any command makes this client the most recently active, which
+		// may hand it the session's size.
+		if sess, ok := s.clients.session(req.client); ok {
+			s.refreshArea(sess.ID())
+		}
 	}
-	var (
-		changed bool
-		err     error
-	)
+}
+
+// apply hands a client's command to the service responsible for it.
+func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 	switch c := cmd.(type) {
 	case domain.SetArea:
-		changed = s.layout.setArea(c.Size)
-		if !s.lifecycle.started() {
-			s.lifecycle.start()
-			changed = true
+		s.server.SetClientSize(client, c.Size)
+		if sess, ok := s.clients.session(client); ok {
+			s.refreshArea(sess.ID())
 		}
+		return nil
+	case domain.AttachSession:
+		sess, err := s.sessions.find(c.Name)
+		if err != nil {
+			return err
+		}
+		return s.attach(client, sess)
+	case domain.CreateSession:
+		sess, err := s.sessions.create(c.Name)
+		if err != nil {
+			return err
+		}
+		return s.attach(client, sess)
+	case domain.SwitchSession:
+		sess, ok := s.server.Session(c.ID)
+		if !ok {
+			return fmt.Errorf("switch to session %d: %w", c.ID, domain.ErrUnknownSession)
+		}
+		return s.attach(client, sess)
 	case domain.KillSession:
-		s.lifecycle.kill()
-	case domain.SplitWindow:
-		if s.lifecycle.ending() {
-			err = errEnding
-			break
+		id := c.ID
+		if id == 0 {
+			sess, ok := s.clients.session(client)
+			if !ok {
+				return errNotAttached
+			}
+			id = sess.ID()
 		}
-		err = s.windows.open(c.Dir)
-		changed = err == nil
-	case domain.CloseWindow:
-		s.windows.closeFocused()
-	case domain.FocusDirection:
-		changed = s.focus.direction(c.Dir)
-	case domain.FocusWindow:
-		changed = s.focus.window(c.ID)
-	case domain.ResizeWindow:
-		changed = s.layout.resize(c.Dir, c.Amount)
-	case domain.SendKey:
-		s.input.sendKey(c.Key)
-	case domain.Paste:
-		s.input.paste(c.Text)
-	default:
-		err = fmt.Errorf("unsupported command %T", cmd)
+		sess, ok := s.server.Session(id)
+		if !ok {
+			return fmt.Errorf("kill session %d: %w", id, domain.ErrUnknownSession)
+		}
+		if s.sessions.kill(sess) {
+			s.removeSession(sess, nil)
+		}
+		return nil
 	}
-	s.dirty = s.dirty || changed
+
+	sess, ok := s.clients.session(client)
+	if !ok {
+		return errNotAttached
+	}
+	switch c := cmd.(type) {
+	case domain.RenameSession:
+		if err := s.sessions.rename(sess, c.Name); err != nil {
+			return err
+		}
+		s.markDirty(sess.ID())
+	case domain.SplitWindow:
+		if s.sessions.ending(sess) {
+			return errEnding
+		}
+		if err := s.windows.open(sess, c.Dir); err != nil {
+			return err
+		}
+		s.markDirty(sess.ID())
+	case domain.CloseWindow:
+		s.windows.closeFocused(sess)
+	case domain.FocusDirection:
+		if s.focus.direction(sess, c.Dir) {
+			s.markDirty(sess.ID())
+		}
+	case domain.FocusWindow:
+		if s.focus.window(sess, c.ID) {
+			s.markDirty(sess.ID())
+		}
+	case domain.ResizeWindow:
+		if s.layout.resize(sess, c.Dir, c.Amount) {
+			s.markDirty(sess.ID())
+		}
+	case domain.SendKey:
+		s.input.sendKey(sess, c.Key)
+	case domain.Paste:
+		s.input.paste(sess, c.Text)
+	default:
+		return fmt.Errorf("unsupported command %T", cmd)
+	}
+	return nil
+}
+
+// attach moves a client to a session, resizing both the session it left and
+// the one it joined.
+func (s *Service) attach(client domain.ClientID, sess *domain.Session) error {
+	old, err := s.clients.attach(client, sess.ID())
 	if err != nil {
-		s.emit(ctx, domain.CommandFailed{Command: cmd, Err: err})
+		return err
+	}
+	if old != 0 && old != sess.ID() {
+		s.refreshArea(old)
+	}
+	s.listChanged = true
+	s.markDirty(sess.ID())
+	s.refreshArea(sess.ID())
+	return nil
+}
+
+// refreshArea lays a session out in the space its clients give it, and
+// starts its first window once it has space.
+func (s *Service) refreshArea(id domain.SessionID) {
+	sess, ok := s.server.Session(id)
+	if !ok {
+		return
+	}
+	if size, ok := s.server.AreaFor(id); ok && s.layout.setArea(sess, size) {
+		s.markDirty(id)
+	}
+	opened, err := s.sessions.ensureStarted(sess)
+	switch {
+	case err != nil:
+		s.removeSession(sess, fmt.Errorf("start session %q: %w", sess.Name(), err))
+	case opened:
+		s.markDirty(id)
 	}
 }
 
 func (s *Service) paneExited(id domain.PaneID) {
-	if !s.windows.paneExited(id) {
+	sess, closed := s.windows.paneExited(id)
+	if !closed {
 		return
 	}
-	s.dirty = true
-	s.lifecycle.endIfEmpty()
-}
-
-// publish brings pane sizes in line with the layout and announces it.
-func (s *Service) publish(ctx context.Context) {
-	s.dirty = false
-	s.emit(ctx, domain.LayoutChanged{Snapshot: s.layout.sync()})
-}
-
-func (s *Service) emit(ctx context.Context, ev domain.Event) {
-	select {
-	case s.events <- ev:
-	case <-ctx.Done():
+	s.markDirty(sess.ID())
+	if sess.Len() == 0 {
+		s.removeSession(sess, nil)
 	}
+}
+
+// removeSession deletes a session and moves its clients to the most
+// recently used remaining session, detaching them if there is none.
+func (s *Service) removeSession(sess *domain.Session, cause error) {
+	clients := s.server.ClientsOf(sess.ID())
+	s.sessions.remove(sess)
+	delete(s.dirty, sess.ID())
+	s.listChanged = true
+
+	for _, c := range clients {
+		next, ok := s.server.MostRecentSession(0)
+		if !ok {
+			s.clients.detach(c, cause)
+			continue
+		}
+		if cause != nil {
+			s.clients.send(c, domain.CommandFailed{Err: cause})
+		}
+		_ = s.attach(c, next)
+	}
+	s.lifecycle.check()
+}
+
+// paneOutput tells the clients viewing changed panes to redraw.
+func (s *Service) paneOutput() {
+	sessions := map[domain.SessionID]bool{}
+	for _, p := range s.host.TakeChanged() {
+		if sess, ok := s.server.SessionForPane(p); ok {
+			sessions[sess.ID()] = true
+		}
+	}
+	for id := range sessions {
+		for _, c := range s.server.ClientsOf(id) {
+			s.clients.signalChanged(c)
+		}
+	}
+}
+
+func (s *Service) markDirty(id domain.SessionID) {
+	s.dirty[id] = true
+}
+
+// publish brings pane sizes in line with each changed layout and tells the
+// clients about it.
+func (s *Service) publish() {
+	if len(s.dirty) == 0 && !s.listChanged {
+		return
+	}
+	// The session list goes first so clients never draw a layout next to a
+	// stale list.
+	s.clients.broadcastSessions()
+	for id := range s.dirty {
+		sess, ok := s.server.Session(id)
+		if !ok {
+			continue
+		}
+		ev := domain.LayoutChanged{Snapshot: s.layout.sync(sess)}
+		for _, c := range s.server.ClientsOf(id) {
+			s.clients.send(c, ev)
+		}
+	}
+	clear(s.dirty)
+	s.listChanged = false
 }

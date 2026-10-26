@@ -37,6 +37,7 @@ type Host struct {
 	opts    Options
 	mu      sync.Mutex
 	panes   map[domain.PaneID]*pane
+	dirty   map[domain.PaneID]struct{}
 	exited  chan domain.PaneID
 	changed chan struct{}
 }
@@ -46,6 +47,7 @@ func NewHost(opts Options) *Host {
 	return &Host{
 		opts:    opts,
 		panes:   make(map[domain.PaneID]*pane),
+		dirty:   make(map[domain.PaneID]struct{}),
 		exited:  make(chan domain.PaneID, 64),
 		changed: make(chan struct{}, 1),
 	}
@@ -75,7 +77,7 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size) error {
 	h.panes[id] = p
 	h.mu.Unlock()
 
-	go p.readOutput(h.signalChanged)
+	go p.readOutput(func() { h.markChanged(id) })
 	go p.forwardInput()
 	go p.writeInput()
 	go func() {
@@ -136,6 +138,18 @@ func (h *Host) Exited() <-chan domain.PaneID { return h.exited }
 // Changed implements service.PaneHost.
 func (h *Host) Changed() <-chan struct{} { return h.changed }
 
+// TakeChanged implements service.PaneHost.
+func (h *Host) TakeChanged() []domain.PaneID {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]domain.PaneID, 0, len(h.dirty))
+	for id := range h.dirty {
+		out = append(out, id)
+	}
+	clear(h.dirty)
+	return out
+}
+
 func (h *Host) pane(id domain.PaneID) (*pane, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -143,7 +157,10 @@ func (h *Host) pane(id domain.PaneID) (*pane, bool) {
 	return p, ok
 }
 
-func (h *Host) signalChanged() {
+func (h *Host) markChanged(id domain.PaneID) {
+	h.mu.Lock()
+	h.dirty[id] = struct{}{}
+	h.mu.Unlock()
 	select {
 	case h.changed <- struct{}{}:
 	default:

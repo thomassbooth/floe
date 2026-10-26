@@ -28,7 +28,13 @@ func DefaultKeymap() Keymap {
 			{Keys: []domain.Key{char('L'), special(domain.KeyRight, domain.ModShift)}, Command: domain.ResizeWindow{Dir: domain.Right, Amount: resizeStep}, Help: "resize right", Repeat: true},
 
 			{Keys: []domain.Key{char('x')}, Command: domain.CloseWindow{}, Help: "close"},
-			{Keys: []domain.Key{char('q')}, Command: domain.KillSession{}, Help: "quit"},
+
+			{Keys: []domain.Key{char('s')}, Action: ActionSessionSwitcher, Help: "sessions"},
+			{Keys: []domain.Key{char('C')}, Command: domain.CreateSession{}, Help: "new session"},
+			{Keys: []domain.Key{char('$')}, Action: ActionRenameSession, Help: "rename"},
+			{Keys: []domain.Key{char('(')}, Action: ActionPrevSession, Help: "prev session"},
+			{Keys: []domain.Key{char(')')}, Action: ActionNextSession, Help: "next session"},
+			{Keys: []domain.Key{char('q')}, Command: domain.KillSession{}, Help: "kill session"},
 		},
 	}
 }

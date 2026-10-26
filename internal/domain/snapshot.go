@@ -2,7 +2,10 @@ package domain
 
 // Snapshot is a read-only copy of a session's state, ready for drawing.
 type Snapshot struct {
-	Area Rect
+	// Session and Name identify the session shown.
+	Session SessionID
+	Name    string
+	Area    Rect
 	// Windows are in draw order, back to front.
 	Windows []WindowView
 	// Focused is zero when the session has no windows.

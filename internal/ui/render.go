@@ -35,8 +35,19 @@ func (m Model) render() (string, *tea.Cursor) {
 		}
 	}
 
+	if m.switcher != nil {
+		m.switcher.draw(canvas, m.snap.Area, m.sessions, m.theme)
+		cursor = nil
+	}
+
 	bar := uv.Rect(0, m.height-statusBarHeight, m.width, statusBarHeight)
-	uv.NewStyledString(m.statusBar(m.width)).Draw(canvas, bar)
+	if m.prompt != nil {
+		line, x := m.promptBar(m.width)
+		uv.NewStyledString(line).Draw(canvas, bar)
+		cursor = tea.NewCursor(x, bar.Min.Y)
+	} else {
+		uv.NewStyledString(m.statusBar(m.width)).Draw(canvas, bar)
+	}
 
 	return canvas.Render(), cursor
 }
@@ -114,8 +125,12 @@ func (m Model) statusBar(width int) string {
 	dim := bar.Foreground(t.BarDim)
 	badge := lipgloss.NewStyle().Background(t.Accent).Foreground(t.BadgeFg).Bold(true).Padding(0, 1)
 
+	name := m.snap.Name
+	if name == "" {
+		name = "mux"
+	}
 	var left strings.Builder
-	left.WriteString(badge.Render("mux"))
+	left.WriteString(badge.Render(name))
 	left.WriteString(bar.Render(" "))
 	windows := slices.Clone(m.snap.Windows)
 	slices.SortFunc(windows, func(a, b domain.WindowView) int { return cmp.Compare(a.ID, b.ID) })
@@ -149,13 +164,30 @@ func (m Model) statusBar(width int) string {
 	return ansi.Truncate(l+bar.Render(strings.Repeat(" ", gap))+right, width, "")
 }
 
+// promptBar draws the open prompt in place of the status bar and returns
+// the column where the cursor goes.
+func (m Model) promptBar(width int) (string, int) {
+	t := m.theme
+	bar := lipgloss.NewStyle().Background(t.BarBg).Foreground(t.BarFg)
+	badge := lipgloss.NewStyle().Background(t.Accent).Foreground(t.BadgeFg).Bold(true).Padding(0, 1)
+
+	label := badge.Render(m.prompt.label) + bar.Render(" ")
+	text := string(m.prompt.text)
+	hint := bar.Foreground(t.BarDim).Render("enter save · esc cancel ")
+	cursor := lipgloss.Width(label) + lipgloss.Width(text)
+
+	gap := max(width-lipgloss.Width(label)-lipgloss.Width(text)-lipgloss.Width(hint), 1)
+	line := label + bar.Render(text+strings.Repeat(" ", gap)) + hint
+	return ansi.Truncate(line, width, ""), min(cursor, width-1)
+}
+
 type hint struct {
 	keys []domain.Key
 	help string
 }
 
-// hints describes the keymap compactly, folding the four directional
-// bindings of focus and resize into one entry each.
+// hints describes the keymap compactly, folding the directional bindings of
+// focus and resize, and the session cycling pair, into one entry each.
 func (m Model) hints(key, dim lipgloss.Style, repeatOnly bool) string {
 	var list []hint
 	group := map[string]int{}
@@ -169,6 +201,9 @@ func (m Model) hints(key, dim lipgloss.Style, repeatOnly bool) string {
 			name = "focus"
 		case domain.ResizeWindow:
 			name = "resize"
+		}
+		if b.Action == input.ActionPrevSession || b.Action == input.ActionNextSession {
+			name = "prev/next session"
 		}
 		if i, ok := group[name]; ok {
 			list[i].keys = append(list[i].keys, b.Keys[0])

@@ -8,11 +8,11 @@ import (
 
 func TestServiceRoutesInputToFocusedPane(t *testing.T) {
 	h := start(t, newFakeHost())
-	h.svc.Apply(domain.SetArea{Size: domain.Size{W: 80, H: 24}})
-	h.svc.Apply(domain.SplitWindow{Dir: domain.Down})
-	h.svc.Apply(domain.FocusDirection{Dir: domain.Up})
-	h.svc.Apply(domain.SendKey{Key: domain.Key{Code: 'x', Text: "x"}})
-	h.svc.Apply(domain.Paste{Text: "hello"})
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Down})
+	c.apply(domain.FocusDirection{Dir: domain.Up})
+	c.apply(domain.SendKey{Key: domain.Key{Code: 'x', Text: "x"}})
+	c.apply(domain.Paste{Text: "hello"})
 
 	eventually(t, func() bool {
 		h.host.mu.Lock()

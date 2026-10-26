@@ -1,0 +1,79 @@
+package service
+
+import (
+	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomasbooth/multiplexer/internal/queue"
+)
+
+// Client is one connection to the service, such as a terminal showing a
+// session. Its methods are safe to call from any goroutine.
+type Client struct {
+	id      domain.ClientID
+	svc     *Service
+	queue   *queue.Unbounded[domain.Event]
+	events  chan domain.Event
+	changed chan struct{}
+}
+
+func newClient(id domain.ClientID, svc *Service) *Client {
+	c := &Client{
+		id:      id,
+		svc:     svc,
+		queue:   queue.New[domain.Event](),
+		events:  make(chan domain.Event),
+		changed: make(chan struct{}, 1),
+	}
+	go c.pump()
+	return c
+}
+
+// ID returns the client's ID.
+func (c *Client) ID() domain.ClientID { return c.id }
+
+// Apply queues a command from this client. It never blocks.
+func (c *Client) Apply(cmd domain.Command) {
+	c.svc.inbox.Push(request{kind: requestCommand, client: c.id, cmd: cmd})
+}
+
+// Events receives everything the server tells this client. It is closed
+// after Detached.
+func (c *Client) Events() <-chan domain.Event { return c.events }
+
+// Changed receives a signal when a pane in the client's session changes.
+// Signals coalesce.
+func (c *Client) Changed() <-chan struct{} { return c.changed }
+
+// Grid copies a pane's current screen.
+func (c *Client) Grid(id domain.PaneID) (domain.Grid, bool) {
+	return c.svc.host.Grid(id)
+}
+
+// Close disconnects the client. Its sessions keep running.
+func (c *Client) Close() {
+	c.svc.inbox.Push(request{kind: requestDisconnect, client: c.id})
+}
+
+// deliver queues an event without blocking the actor.
+func (c *Client) deliver(ev domain.Event) {
+	c.queue.Push(ev)
+}
+
+func (c *Client) signalChanged() {
+	select {
+	case c.changed <- struct{}{}:
+	default:
+	}
+}
+
+// pump moves queued events onto the Events channel, ending after Detached.
+func (c *Client) pump() {
+	defer close(c.events)
+	for range c.queue.Ready() {
+		for _, ev := range c.queue.Drain() {
+			c.events <- ev
+			if _, ok := ev.(domain.Detached); ok {
+				return
+			}
+		}
+	}
+}

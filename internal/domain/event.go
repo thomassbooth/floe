@@ -1,14 +1,23 @@
 package domain
 
-// Event is something the session announces to its clients.
+// Event is something the server tells a client.
 type Event interface {
 	event()
 }
 
-// LayoutChanged carries the session's new state after windows were added,
-// removed, moved, resized or refocused.
+// LayoutChanged carries the new state of the client's session after windows
+// were added, removed, moved, resized or refocused, or the client switched
+// sessions.
 type LayoutChanged struct {
 	Snapshot Snapshot
+}
+
+// SessionsChanged lists every session after one was created, renamed,
+// removed or changed its windows.
+type SessionsChanged struct {
+	Sessions []SessionInfo
+	// Current is the session the client is attached to.
+	Current SessionID
 }
 
 // CommandFailed reports a command that could not be carried out.
@@ -17,12 +26,13 @@ type CommandFailed struct {
 	Err     error
 }
 
-// SessionEnded is the last event a session sends. Err is set when the
-// session ended because of a failure rather than its windows closing.
-type SessionEnded struct {
+// Detached is the last event a client receives: it is no longer attached to
+// any session. Err is set when this happened because of a failure.
+type Detached struct {
 	Err error
 }
 
-func (LayoutChanged) event() {}
-func (CommandFailed) event() {}
-func (SessionEnded) event()  {}
+func (LayoutChanged) event()   {}
+func (SessionsChanged) event() {}
+func (CommandFailed) event()   {}
+func (Detached) event()        {}

@@ -213,7 +213,7 @@ func TestStartsWithOneFramedShell(t *testing.T) {
 	if !strings.HasPrefix(lines[22], "╰") || !strings.HasSuffix(lines[22], "╯") {
 		t.Errorf("bottom border should sit just above the status bar: %q", lines[22])
 	}
-	if !strings.HasPrefix(lines[23], " mux ") || !strings.Contains(lines[23], "ctrl+b prefix") {
+	if !strings.HasPrefix(lines[23], " 1 ") || !strings.Contains(lines[23], "ctrl+b prefix") {
 		t.Errorf("status bar looks wrong: %q", lines[23])
 	}
 }

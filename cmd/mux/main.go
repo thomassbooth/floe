@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/thomasbooth/multiplexer/internal/domain"
 	"github.com/thomasbooth/multiplexer/internal/infra/terminal"
 	"github.com/thomasbooth/multiplexer/internal/input"
 	"github.com/thomasbooth/multiplexer/internal/service"
@@ -40,7 +41,10 @@ func run() error {
 	done := make(chan error, 1)
 	go func() { done <- svc.Run(ctx) }()
 
-	final, err := tea.NewProgram(ui.New(svc, input.DefaultKeymap())).Run()
+	client := svc.Connect()
+	client.Apply(domain.AttachSession{})
+	final, err := tea.NewProgram(ui.New(client, input.DefaultKeymap())).Run()
+	client.Close()
 	cancel()
 	runErr := <-done
 	if err != nil {

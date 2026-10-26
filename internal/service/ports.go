@@ -17,6 +17,10 @@ type PaneHost interface {
 	// Exited receives the ID of every pane whose process ended.
 	Exited() <-chan domain.PaneID
 	// Changed receives a signal when any pane's screen changes. Signals
-	// coalesce, so one receive may stand for many changes.
+	// coalesce, so one receive may stand for many changes; TakeChanged says
+	// which panes they were.
 	Changed() <-chan struct{}
+	// TakeChanged returns the panes whose screens changed since it was last
+	// called.
+	TakeChanged() []domain.PaneID
 }

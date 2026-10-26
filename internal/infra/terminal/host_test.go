@@ -75,6 +75,9 @@ func TestHostRunsShellAndTypesKeys(t *testing.T) {
 	default:
 		t.Fatal("expected a change signal after output")
 	}
+	if got := h.TakeChanged(); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("changed panes = %v, want [1]", got)
+	}
 }
 
 func TestHostResizeReachesTheShell(t *testing.T) {

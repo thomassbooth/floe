@@ -18,10 +18,12 @@ type Window struct {
 	Title string
 }
 
-// Session is the set of windows the user is working with, how they are laid
-// out, and which one has focus. It holds no processes: the service starts
-// and stops panes to match.
+// Session is a named set of windows, how they are laid out, and which one
+// has focus. It holds no processes: the service starts and stops panes to
+// match.
 type Session struct {
+	id      SessionID
+	name    string
 	area    Rect
 	windows map[WindowID]*Window
 	panes   map[PaneID]WindowID
@@ -31,31 +33,44 @@ type Session struct {
 	history []WindowID
 
 	lastWindow WindowID
-	lastPane   PaneID
 }
 
-// NewSession returns an empty session using a tiling layout.
-func NewSession() *Session {
+// NewSession returns an empty session using a tiling layout. Sessions are
+// normally created through Server.CreateSession.
+func NewSession(id SessionID, name string) *Session {
 	return &Session{
+		id:      id,
+		name:    name,
 		windows: make(map[WindowID]*Window),
 		panes:   make(map[PaneID]WindowID),
 		tiled:   NewTree(),
 	}
 }
 
+// ID returns the session's ID.
+func (s *Session) ID() SessionID { return s.id }
+
+// Name returns the session's name.
+func (s *Session) Name() string { return s.name }
+
 // SetArea sets the screen area windows are laid out in.
 func (s *Session) SetArea(r Rect) { s.area = r }
+
+// Area returns the screen area windows are laid out in.
+func (s *Session) Area() Rect { return s.area }
 
 // Len returns the number of windows.
 func (s *Session) Len() int { return len(s.windows) }
 
-// OpenWindow adds a window with a new pane. The first window fills the area;
+// OpenWindow adds a window showing pane. The first window fills the area;
 // later ones split the focused window, appearing on its dir side. The new
 // window gets focus.
-func (s *Session) OpenWindow(title string, dir Direction) (Window, error) {
+func (s *Session) OpenWindow(title string, dir Direction, pane PaneID) (Window, error) {
+	if _, taken := s.panes[pane]; taken {
+		return Window{}, fmt.Errorf("open window: pane %d is already shown", pane)
+	}
 	s.lastWindow++
-	s.lastPane++
-	w := &Window{ID: s.lastWindow, Pane: s.lastPane, Title: title}
+	w := &Window{ID: s.lastWindow, Pane: pane, Title: title}
 
 	target, _ := s.focused()
 	if err := s.tiled.Add(w.ID, target, dir); err != nil {
@@ -143,6 +158,8 @@ func (s *Session) Snapshot() Snapshot {
 	focus, _ := s.focused()
 	placements := s.tiled.Arrange(s.area)
 	snap := Snapshot{
+		Session: s.id,
+		Name:    s.name,
 		Area:    s.area,
 		Focused: focus,
 		Windows: make([]WindowView, 0, len(placements)),

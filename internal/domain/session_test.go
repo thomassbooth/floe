@@ -2,15 +2,14 @@ package domain
 
 import "testing"
 
+// newSession opens one window, then one more per split. Window n shows
+// pane n.
 func newSession(t *testing.T, splits ...Direction) *Session {
 	t.Helper()
-	s := NewSession()
+	s := NewSession(1, "test")
 	s.SetArea(screen)
-	if _, err := s.OpenWindow("sh", Right); err != nil {
-		t.Fatal(err)
-	}
-	for _, d := range splits {
-		if _, err := s.OpenWindow("sh", d); err != nil {
+	for i, d := range append([]Direction{Right}, splits...) {
+		if _, err := s.OpenWindow("sh", d, PaneID(i+1)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -26,20 +25,23 @@ func focusedID(t *testing.T, s *Session) WindowID {
 	return w.ID
 }
 
-func TestSessionOpenWindowFocusesItAndAllocatesPane(t *testing.T) {
+func TestSessionOpenWindowFocusesIt(t *testing.T) {
 	s := newSession(t)
-	w, err := s.OpenWindow("zsh", Right)
+	w, err := s.OpenWindow("zsh", Right, 42)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.ID != 2 || w.Pane != 2 || w.Title != "zsh" {
+	if w.ID != 2 || w.Pane != 42 || w.Title != "zsh" {
 		t.Fatalf("unexpected window %+v", w)
 	}
 	if focusedID(t, s) != 2 {
 		t.Fatal("new window should have focus")
 	}
-	if got, ok := s.WindowForPane(2); !ok || got.ID != 2 {
+	if got, ok := s.WindowForPane(42); !ok || got.ID != 2 {
 		t.Fatal("pane lookup failed")
+	}
+	if _, err := s.OpenWindow("zsh", Right, 42); err == nil {
+		t.Fatal("a pane may only be shown once")
 	}
 }
 
@@ -91,7 +93,7 @@ func TestSessionSnapshot(t *testing.T) {
 	s := newSession(t, Right)
 	snap := s.Snapshot()
 
-	if snap.Focused != 2 || len(snap.Windows) != 2 {
+	if snap.Focused != 2 || len(snap.Windows) != 2 || snap.Session != 1 || snap.Name != "test" {
 		t.Fatalf("unexpected snapshot %+v", snap)
 	}
 	w := snap.Windows[1]

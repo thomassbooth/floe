@@ -41,9 +41,14 @@ type Model struct {
 
 	width, height int
 	snap          domain.Snapshot
+	sessions      domain.SessionsChanged
 	notice        string
 
-	// Err is set when the session ended because of a failure.
+	// Overlays that take the keyboard while open; nil when closed.
+	switcher *switcher
+	prompt   *prompt
+
+	// Err is set when the client was detached because of a failure.
 	Err error
 }
 
@@ -74,9 +79,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		m.notice = ""
 		if k, ok := toDomainKey(tea.Key(msg)); ok {
-			if cmd, ok := m.keys.Handle(k); ok {
-				m.backend.Apply(cmd)
-			}
+			m.handleKey(k)
 		}
 
 	case tea.PasteMsg:
@@ -84,7 +87,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseClickMsg:
 		mouse := msg.Mouse()
-		if mouse.Button == tea.MouseLeft {
+		if m.switcher != nil {
+			m.switcher = nil
+		} else if mouse.Button == tea.MouseLeft {
 			if w, ok := m.snap.WindowAt(mouse.X, mouse.Y); ok {
 				m.keys.Reset()
 				m.backend.Apply(domain.FocusWindow{ID: w.ID})
@@ -95,9 +100,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch ev := msg.event.(type) {
 		case domain.LayoutChanged:
 			m.snap = ev.Snapshot
+		case domain.SessionsChanged:
+			m.sessions = ev
 		case domain.CommandFailed:
 			m.notice = ev.Err.Error()
-		case domain.SessionEnded:
+		case domain.Detached:
 			m.Err = ev.Err
 			return m, tea.Quit
 		}
@@ -115,6 +122,64 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.waitChanged
 	}
 	return m, nil
+}
+
+// handleKey routes a key to the open overlay, or else to the key machine.
+func (m *Model) handleKey(k domain.Key) {
+	var cmd domain.Command
+	switch {
+	case m.prompt != nil:
+		var done bool
+		if cmd, done = m.prompt.handle(k); done {
+			m.prompt = nil
+		}
+	case m.switcher != nil:
+		var done bool
+		if cmd, done = m.switcher.handle(k, m.sessions.Sessions); done {
+			m.switcher = nil
+		}
+	default:
+		res, ok := m.keys.Handle(k)
+		if !ok {
+			return
+		}
+		cmd = res.Command
+		m.runAction(res.Action)
+	}
+	if cmd != nil {
+		m.backend.Apply(cmd)
+	}
+}
+
+func (m *Model) runAction(a input.Action) {
+	switch a {
+	case input.ActionSessionSwitcher:
+		m.switcher = newSwitcher(m.sessions)
+	case input.ActionRenameSession:
+		m.prompt = newPrompt("rename session", m.snap.Name, func(name string) domain.Command {
+			return domain.RenameSession{Name: name}
+		})
+	case input.ActionPrevSession:
+		m.cycleSession(-1)
+	case input.ActionNextSession:
+		m.cycleSession(1)
+	}
+}
+
+// cycleSession switches to the session delta places away in the list,
+// wrapping around.
+func (m *Model) cycleSession(delta int) {
+	list := m.sessions.Sessions
+	if len(list) < 2 {
+		return
+	}
+	for i, info := range list {
+		if info.ID == m.sessions.Current {
+			next := list[(i+delta+len(list))%len(list)]
+			m.backend.Apply(domain.SwitchSession{ID: next.ID})
+			return
+		}
+	}
 }
 
 func (m Model) waitEvent() tea.Msg {

@@ -8,31 +8,30 @@ import (
 
 func TestServiceMovesFocus(t *testing.T) {
 	h := start(t, newFakeHost())
-	h.svc.Apply(domain.SetArea{Size: domain.Size{W: 80, H: 24}})
-	h.svc.Apply(domain.SplitWindow{Dir: domain.Right})
-	h.layoutUntil(windows(2))
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right})
+	c.layoutUntil(windows(2))
 
-	h.svc.Apply(domain.FocusDirection{Dir: domain.Left})
-	if snap := h.layout(); snap.Focused != 1 {
+	c.apply(domain.FocusDirection{Dir: domain.Left})
+	if snap := c.layout(); snap.Focused != 1 {
 		t.Fatalf("focus = %d, want 1", snap.Focused)
 	}
 
-	h.svc.Apply(domain.FocusWindow{ID: 2})
-	if snap := h.layout(); snap.Focused != 2 {
+	c.apply(domain.FocusWindow{ID: 2})
+	if snap := c.layout(); snap.Focused != 2 {
 		t.Fatalf("focus = %d, want 2", snap.Focused)
 	}
 }
 
 func TestServiceSkipsLayoutWhenFocusCannotMove(t *testing.T) {
 	h := start(t, newFakeHost())
-	h.svc.Apply(domain.SetArea{Size: domain.Size{W: 80, H: 24}})
-	h.layout()
+	c := h.open()
 
 	// Nothing to the left: no new layout. The resize afterwards proves the
-	// next event belongs to it rather than to the focus command.
-	h.svc.Apply(domain.FocusDirection{Dir: domain.Left})
-	h.svc.Apply(domain.SetArea{Size: domain.Size{W: 60, H: 20}})
-	if snap := h.layout(); snap.Area.W != 60 {
+	// next layout belongs to it rather than to the focus command.
+	c.apply(domain.FocusDirection{Dir: domain.Left})
+	c.apply(domain.SetArea{Size: domain.Size{W: 60, H: 20}})
+	if snap := c.layout(); snap.Area.W != 60 {
 		t.Fatalf("expected only the resize layout, got %+v", snap)
 	}
 }
