@@ -99,11 +99,11 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 		m.switcher = nil
 		return
 	}
-	if mouse.Button != tea.MouseLeft {
+	if mouse.Y == m.height-statusBarHeight {
+		m.statusBarClick(mouse.X, mouse.Button)
 		return
 	}
-	if mouse.Y == m.height-statusBarHeight {
-		m.statusBarClick(mouse.X)
+	if mouse.Button != tea.MouseLeft {
 		return
 	}
 	t, ok := m.targetAt(mouse.X, mouse.Y)
@@ -132,17 +132,30 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	}
 }
 
-// statusBarClick focuses the window whose tab is at column x.
-func (m *Model) statusBarClick(x int) {
-	if m.prompt != nil {
-		return // the prompt replaces the tabs
+// statusBarClick handles a click on the status bar. A left click on the
+// session badge opens the session switcher and one on a window's tab
+// focuses that window; a middle click on a tab closes the window.
+func (m *Model) statusBarClick(x int, button tea.MouseButton) {
+	if m.prompt != nil || x >= m.width {
+		return // the prompt replaces the badge and tabs
+	}
+	if button == tea.MouseLeft && x < m.badgeWidth() {
+		m.keys.Reset()
+		m.switcher = newSwitcher(m.sessions)
+		return
 	}
 	for _, tab := range m.statusTabs() {
-		if x >= tab.x0 && x < tab.x1 && x < m.width {
+		if x < tab.x0 || x >= tab.x1 {
+			continue
+		}
+		switch button {
+		case tea.MouseLeft:
 			m.keys.Reset()
 			m.backend.Apply(domain.FocusWindow{ID: tab.window.ID})
-			return
+		case tea.MouseMiddle:
+			m.backend.Apply(domain.CloseWindow{ID: tab.window.ID})
 		}
+		return
 	}
 }
 

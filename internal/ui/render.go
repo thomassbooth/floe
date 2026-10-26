@@ -209,7 +209,7 @@ func (m Model) statusTabs() []statusTab {
 	windows := slices.Clone(m.snap.Windows)
 	slices.SortFunc(windows, func(a, b domain.WindowView) int { return cmp.Compare(a.ID, b.ID) })
 
-	x := lipgloss.Width(m.badgeStyle().Render(m.sessionLabel())) + 1
+	x := m.badgeWidth() + 1
 	tabs := make([]statusTab, len(windows))
 	for i, w := range windows {
 		label := fmt.Sprintf(" %d %s ", w.ID, w.Title)
@@ -225,6 +225,11 @@ func (m Model) sessionLabel() string {
 		return "mux"
 	}
 	return m.snap.Name
+}
+
+// badgeWidth is how many columns the session badge takes.
+func (m Model) badgeWidth() int {
+	return lipgloss.Width(m.badgeStyle().Render(m.sessionLabel()))
 }
 
 func (m Model) badgeStyle() lipgloss.Style {

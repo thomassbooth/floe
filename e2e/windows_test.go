@@ -208,3 +208,35 @@ func TestClickingStatusBarTabFocusesWindow(t *testing.T) {
 		}
 	}
 }
+
+// middleClick presses and releases the middle button at x, y.
+func (tm *term) middleClick(x, y int) {
+	tm.t.Helper()
+	tm.send(fmt.Sprintf("\x1b[<1;%d;%dM\x1b[<1;%d;%dm", x+1, y+1, x+1, y+1))
+}
+
+func TestMiddleClickingTabClosesWindow(t *testing.T) {
+	tm := twoWindows(t)
+	tm.middleClick(column(tm.lines()[29], "1 sh"), 29)
+	tm.waitUntil("window 1 to close", func(s string) bool { return !strings.Contains(s, " 1 sh ") })
+	// Window 2 takes the space back.
+	tm.waitUntil("window 2 to fill the screen", func(string) bool {
+		return strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ")
+	})
+	if bar := tm.lines()[29]; strings.Contains(bar, "1 sh") || !strings.Contains(bar, "2 sh") {
+		t.Fatalf("status bar = %q", bar)
+	}
+}
+
+func TestClickingSessionBadgeOpensSwitcher(t *testing.T) {
+	tm := launch(t, 100, 30)
+	tm.waitFor(" 1 sh ")
+	tm.prefix("C")
+	tm.waitBadge("2")
+
+	tm.click(1, 29)
+	tm.waitFor("enter switch")
+	tm.send("k\r")
+	tm.waitBadge("1")
+	tm.waitUntil("switcher to close", func(s string) bool { return !strings.Contains(s, "enter switch") })
+}
