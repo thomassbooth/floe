@@ -29,7 +29,8 @@ type Session struct {
 	windows map[WindowID]*Window
 	panes   map[PaneID]WindowID
 	stack   *Stack
-	// restore holds the frames maximized windows return to.
+	// restore holds, for maximized and snapped windows, the frame they had
+	// while free, to go back to.
 	restore map[WindowID]Rect
 	// history lists windows from least to most recently focused. The last
 	// entry has focus.
@@ -347,22 +348,74 @@ func (s *Session) Resize(dir Direction, amount int) bool {
 }
 
 // ToggleMaximize makes a window fill the screen, or puts a maximized window
-// back where it was. Moving or resizing a maximized window keeps it where it
-// is. It reports whether the window changed.
+// back where it was before it was maximized or snapped. Moving or resizing a
+// maximized window keeps it where it is. It reports whether the window
+// changed.
 func (s *Session) ToggleMaximize(id WindowID) bool {
 	f, ok := s.frame(id)
 	if !ok {
 		return false
 	}
-	if prev, maximized := s.restore[id]; maximized {
+	if prev, held := s.restore[id]; held && f == s.area {
 		delete(s.restore, id)
 		return s.stack.SetFrame(id, fit(prev, s.area))
 	}
-	if f == s.area {
+	return s.snapTo(id, s.area)
+}
+
+// Snap moves a window into a zone of the screen. The window remembers where
+// it was, so dragging it away or restoring it gives that size back. It
+// reports whether the window changed.
+func (s *Session) Snap(id WindowID, zone Zone) bool {
+	if zone == ZoneNone {
 		return false
 	}
-	s.restore[id] = f
-	return s.stack.SetFrame(id, s.area)
+	return s.snapTo(id, zone.Rect(s.area))
+}
+
+// Tidy snaps every window into a layout that fills the screen: Tile for
+// the number of windows. Each window goes to the nearest free spot, so a
+// rough arrangement keeps its shape. It reports whether anything changed.
+func (s *Session) Tidy() bool {
+	ids := s.stack.IDs()
+	spots := Tile(len(ids), s.area)
+
+	type pair struct {
+		window, spot, dist int
+	}
+	var pairs []pair
+	for wi, id := range ids {
+		f, _ := s.frame(id)
+		for si, spot := range spots {
+			pairs = append(pairs, pair{wi, si, centerDistance(f, spot)})
+		}
+	}
+	slices.SortStableFunc(pairs, func(a, b pair) int { return a.dist - b.dist })
+
+	usedWindow := make([]bool, len(ids))
+	usedSpot := make([]bool, len(spots))
+	changed := false
+	for _, p := range pairs {
+		if usedWindow[p.window] || usedSpot[p.spot] {
+			continue
+		}
+		usedWindow[p.window], usedSpot[p.spot] = true, true
+		changed = s.snapTo(ids[p.window], spots[p.spot]) || changed
+	}
+	return changed
+}
+
+// snapTo moves a window to target, remembering its free frame unless it is
+// already maximized or snapped.
+func (s *Session) snapTo(id WindowID, target Rect) bool {
+	f, ok := s.frame(id)
+	if !ok || f == target {
+		return false
+	}
+	if _, held := s.restore[id]; !held {
+		s.restore[id] = f
+	}
+	return s.stack.SetFrame(id, target)
 }
 
 // Snapshot returns the session's state for drawing.
@@ -378,7 +431,10 @@ func (s *Session) Snapshot() Snapshot {
 	}
 	for _, p := range placements {
 		w := s.windows[p.Window]
-		_, maximized := s.restore[w.ID]
+		restore, held := s.restore[w.ID]
+		if held {
+			restore = fit(restore, s.area)
+		}
 		snap.Windows = append(snap.Windows, WindowView{
 			ID:        w.ID,
 			Pane:      w.Pane,
@@ -386,7 +442,8 @@ func (s *Session) Snapshot() Snapshot {
 			Frame:     p.Frame,
 			Content:   p.Frame.Inset(FrameInset),
 			Focused:   w.ID == focus,
-			Maximized: maximized,
+			Maximized: held && p.Frame == s.area,
+			Restore:   restore,
 		})
 	}
 	return snap

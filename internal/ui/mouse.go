@@ -31,9 +31,14 @@ type drag struct {
 	// move is set when dragging by the title bar; otherwise edges are being
 	// dragged.
 	move   bool
-	offset domain.Point // mouse position within the frame when grabbed
-	size   domain.Size  // frame size when grabbed
+	offset domain.Point // mouse position within the frame while moving
+	size   domain.Size  // frame size while moving
 	edges  []domain.Direction
+	// moved is set once the mouse has moved, so a plain click on a title
+	// never snaps or pops a window out.
+	moved bool
+	// zone is where the window snaps if dropped now.
+	zone domain.Zone
 }
 
 // minButtonsWidth is the narrowest frame that shows title bar buttons.
@@ -120,13 +125,7 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	case partMaximize:
 		m.backend.Apply(domain.ToggleMaximize{ID: id})
 	case partTitle:
-		f := t.window.Frame
-		m.drag = &drag{
-			window: id,
-			move:   true,
-			offset: domain.Point{X: mouse.X - f.X, Y: mouse.Y - f.Y},
-			size:   f.Size(),
-		}
+		m.drag = m.moveDrag(t.window, mouse.X, mouse.Y)
 	case partEdge:
 		m.drag = &drag{window: id, edges: t.edges}
 	}
@@ -159,6 +158,26 @@ func (m *Model) statusBarClick(x int, button tea.MouseButton) {
 	}
 }
 
+// moveDrag starts moving a window grabbed by its title at x, y. A snapped
+// or maximized window comes away at the size it had before, and a free
+// window that fills the screen at half the screen, so either can actually
+// move. The grab point keeps its place along the title.
+func (m Model) moveDrag(w domain.WindowView, x, y int) *drag {
+	f := w.Frame
+	size := f.Size()
+	switch area := m.snap.Area; {
+	case !w.Restore.Empty():
+		size = w.Restore.Size()
+	case f == area:
+		size = domain.Size{W: area.W / 2, H: area.H / 2}
+	}
+	offset := domain.Point{X: x - f.X, Y: y - f.Y}
+	if size != f.Size() {
+		offset.X = min(max(offset.X*size.W/max(f.W, 1), 1), max(size.W-2, 1))
+	}
+	return &drag{window: w.ID, move: true, offset: offset, size: size}
+}
+
 // mouseMotion turns a drag into absolute commands, so a fast drag that
 // skips cells still lands exactly under the mouse.
 func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
@@ -167,7 +186,9 @@ func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
 	}
 	mouse := msg.Mouse()
 	d := m.drag
+	d.moved = true
 	if d.move {
+		d.zone = domain.ZoneAt(domain.Point{X: mouse.X, Y: mouse.Y}, m.snap.Area)
 		m.backend.Apply(domain.PlaceWindow{ID: d.window, Frame: domain.Rect{
 			X: mouse.X - d.offset.X,
 			Y: mouse.Y - d.offset.Y,
@@ -190,6 +211,16 @@ func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
 	}
 }
 
-func (m *Model) mouseRelease() {
+// mouseRelease ends a drag, snapping the window if it was dropped on a
+// zone.
+func (m *Model) mouseRelease(msg tea.MouseReleaseMsg) {
+	d := m.drag
 	m.drag = nil
+	if d == nil || !d.move || !d.moved {
+		return
+	}
+	mouse := msg.Mouse()
+	if zone := domain.ZoneAt(domain.Point{X: mouse.X, Y: mouse.Y}, m.snap.Area); zone != domain.ZoneNone {
+		m.backend.Apply(domain.SnapWindow{ID: d.window, Zone: zone})
+	}
 }

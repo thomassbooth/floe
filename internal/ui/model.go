@@ -94,7 +94,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mouseMotion(msg)
 
 	case tea.MouseReleaseMsg:
-		m.mouseRelease()
+		m.mouseRelease(msg)
 
 	case eventMsg:
 		switch ev := msg.event.(type) {

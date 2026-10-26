@@ -79,6 +79,21 @@ func grow(r, gone Rect) Rect {
 	}
 }
 
+// centerDistance measures how far apart the centers of two rectangles are,
+// in doubled cells so no rounding is needed.
+func centerDistance(a, b Rect) int {
+	dx := (2*a.X + a.W) - (2*b.X + b.W)
+	dy := (2*a.Y + a.H) - (2*b.Y + b.H)
+	return abs(dx) + abs(dy)
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 // scale maps r from one area to another proportionally. Edges are scaled
 // rather than sizes so windows that touched before still touch after.
 func scale(r, from, to Rect) Rect {

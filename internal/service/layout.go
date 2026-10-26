@@ -55,6 +55,18 @@ func (l *layoutService) toggleMaximize(sess *domain.Session, id domain.WindowID)
 	return sess.ToggleMaximize(id)
 }
 
+// snap moves a window into a zone of the screen. It reports whether the
+// layout changed.
+func (l *layoutService) snap(sess *domain.Session, id domain.WindowID, zone domain.Zone) bool {
+	return sess.Snap(id, zone)
+}
+
+// tidy arranges every window to fill the screen. It reports whether the
+// layout changed.
+func (l *layoutService) tidy(sess *domain.Session) bool {
+	return sess.Tidy()
+}
+
 // contentSize returns the space a window currently has for its pane.
 func (l *layoutService) contentSize(sess *domain.Session, id domain.WindowID) domain.Size {
 	for _, w := range sess.Snapshot().Windows {

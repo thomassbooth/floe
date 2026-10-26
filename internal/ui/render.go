@@ -35,6 +35,9 @@ func (m Model) render() (string, *tea.Cursor) {
 		}
 	}
 
+	if m.drag != nil && m.drag.zone != domain.ZoneNone {
+		m.drawZone(canvas, m.drag.zone.Rect(m.snap.Area))
+	}
 	if m.switcher != nil {
 		m.switcher.draw(canvas, m.snap.Area, m.sessions, m.theme)
 		cursor = nil
@@ -64,6 +67,8 @@ var (
 	roundedBorder = border{"╭", "╮", "╰", "╯", "─", "│"}
 	// heavyBorder marks the window being dragged.
 	heavyBorder = border{"┏", "┓", "┗", "┛", "━", "┃"}
+	// snapBorder outlines the zone a dragged window will snap to.
+	snapBorder = border{"╔", "╗", "╚", "╝", "═", "║"}
 )
 
 func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
@@ -128,6 +133,33 @@ func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 	title := ansi.Truncate(fmt.Sprintf(" %d %s ", w.ID, w.Title), room, "… ")
 	area := uv.Rect(f.X+2, f.Y, lipgloss.Width(title), 1)
 	uv.NewStyledString(titleStyle.Render(title)).Draw(scr, area)
+}
+
+// drawZone outlines where a dragged window will snap, over everything
+// else.
+func (m Model) drawZone(scr uv.Screen, r domain.Rect) {
+	if r.W < 2 || r.H < 2 {
+		return
+	}
+	b := snapBorder
+	style := uv.Style{Fg: m.theme.Accent, Attrs: uv.AttrBold}
+	set := func(x, y int, s string) {
+		c := uv.Cell{Content: s, Width: 1, Style: style}
+		scr.SetCell(x, y, &c)
+	}
+	right, bottom := r.Right()-1, r.Bottom()-1
+	for x := r.X + 1; x < right; x++ {
+		set(x, r.Y, b.horizontal)
+		set(x, bottom, b.horizontal)
+	}
+	for y := r.Y + 1; y < bottom; y++ {
+		set(r.X, y, b.vertical)
+		set(right, y, b.vertical)
+	}
+	set(r.X, r.Y, b.topLeft)
+	set(right, r.Y, b.topRight)
+	set(r.X, bottom, b.bottomLeft)
+	set(right, bottom, b.bottomRight)
 }
 
 // drawGrid copies a pane's screen into area. The grid may briefly differ in

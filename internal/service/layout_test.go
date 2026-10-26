@@ -86,3 +86,28 @@ func TestServiceTogglesMaximize(t *testing.T) {
 		t.Fatalf("window = %+v", w)
 	}
 }
+
+func TestServiceSnapsAndTidies(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.NewWindow{Frame: domain.Rect{X: 20, Y: 6, W: 40, H: 12}})
+	c.layoutUntil(windows(2))
+
+	c.apply(domain.SnapWindow{ID: 2, Zone: domain.ZoneRight})
+	snap := c.layout()
+	if w := snap.Windows[1]; w.Frame != (domain.Rect{X: 40, W: 40, H: 24}) || w.Restore.W != 40 {
+		t.Fatalf("snapped window = %+v", w)
+	}
+	if got := h.host.size(2); got != (domain.Size{W: 38, H: 22}) {
+		t.Fatalf("pane resized to %+v", got)
+	}
+
+	c.apply(domain.Tidy{})
+	snap = c.layout()
+	if snap.Windows[0].Frame != (domain.Rect{W: 40, H: 24}) {
+		t.Fatalf("window 1 should take the left half, got %+v", snap.Windows[0].Frame)
+	}
+	if got := h.host.size(1); got != (domain.Size{W: 38, H: 22}) {
+		t.Fatalf("pane 1 resized to %+v", got)
+	}
+}

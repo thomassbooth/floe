@@ -176,6 +176,14 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		if s.layout.resizeEdge(sess, c.ID, c.Edge, c.Position) {
 			s.markDirty(sess.ID())
 		}
+	case domain.SnapWindow:
+		if s.layout.snap(sess, c.ID, c.Zone) {
+			s.markDirty(sess.ID())
+		}
+	case domain.Tidy:
+		if s.layout.tidy(sess) {
+			s.markDirty(sess.ID())
+		}
 	case domain.ToggleMaximize:
 		if s.layout.toggleMaximize(sess, c.ID) {
 			s.markDirty(sess.ID())

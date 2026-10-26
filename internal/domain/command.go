@@ -91,6 +91,16 @@ type ToggleMaximize struct {
 	ID WindowID
 }
 
+// SnapWindow moves a window into a zone of the screen, remembering where it
+// was.
+type SnapWindow struct {
+	ID   WindowID
+	Zone Zone
+}
+
+// Tidy snaps every window into a layout that fills the screen.
+type Tidy struct{}
+
 // CloseWindow closes a window and ends its pane's process. A zero ID means
 // the focused window.
 type CloseWindow struct {
@@ -119,6 +129,8 @@ func (FocusWindow) command()      {}
 func (ResizeWindow) command()     {}
 func (PlaceWindow) command()      {}
 func (ResizeWindowEdge) command() {}
+func (SnapWindow) command()       {}
+func (Tidy) command()             {}
 func (ToggleMaximize) command()   {}
 func (CloseWindow) command()      {}
 func (KillSession) command()      {}

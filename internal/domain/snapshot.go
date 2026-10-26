@@ -23,6 +23,9 @@ type WindowView struct {
 	// Maximized is set while the window fills the screen and remembers
 	// where to go back to.
 	Maximized bool
+	// Restore is where a maximized or snapped window goes back to when
+	// restored or dragged away. It is empty for a free window.
+	Restore Rect
 }
 
 // WindowAt returns the front-most window whose frame contains the cell at
