@@ -34,8 +34,10 @@ type drag struct {
 	offset domain.Point // mouse position within the frame while moving
 	size   domain.Size  // frame size while moving
 	edges  []domain.Direction
-	// moved is set once the mouse has moved, so a plain click on a title
-	// never snaps or pops a window out.
+	// start is where the button went down. The drag only begins once the
+	// mouse leaves that cell: some terminals report motion on the same cell
+	// during a plain click, which must not move or snap anything.
+	start domain.Point
 	moved bool
 	// zone is where the window snaps if dropped now.
 	zone domain.Zone
@@ -127,7 +129,7 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	case partTitle:
 		m.drag = m.moveDrag(t.window, mouse.X, mouse.Y)
 	case partEdge:
-		m.drag = &drag{window: id, edges: t.edges}
+		m.drag = &drag{window: id, edges: t.edges, start: domain.Point{X: mouse.X, Y: mouse.Y}}
 	}
 }
 
@@ -176,7 +178,7 @@ func (m Model) moveDrag(w domain.WindowView, x, y int) *drag {
 	if size != f.Size() {
 		offset.X = min(max(offset.X*size.W/max(f.W, 1), 1), max(size.W-2, 1))
 	}
-	return &drag{window: w.ID, move: true, offset: offset, size: size}
+	return &drag{window: w.ID, move: true, offset: offset, size: size, start: domain.Point{X: x, Y: y}}
 }
 
 // mouseMotion turns a drag into absolute commands, so a fast drag that
@@ -187,6 +189,9 @@ func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
 	}
 	mouse := msg.Mouse()
 	d := m.drag
+	if !d.moved && mouse.X == d.start.X && mouse.Y == d.start.Y {
+		return
+	}
 	d.moved = true
 	if d.move {
 		d.zone = domain.ZoneAt(domain.Point{X: mouse.X, Y: mouse.Y}, m.snap.Area)

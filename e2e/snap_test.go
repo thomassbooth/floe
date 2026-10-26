@@ -111,3 +111,40 @@ func TestTidyFillsTheScreen(t *testing.T) {
 	tm.waitCell(0, 28, "╰")
 	t.Logf("tidied:\n%s", tm.screen())
 }
+
+// jitterClick clicks the way some terminals report it: press, a motion
+// report on the same cell, release.
+func (tm *term) jitterClick(x, y int) {
+	tm.t.Helper()
+	tm.press(x, y)
+	tm.moveTo(x, y)
+	tm.release(x, y)
+}
+
+func TestClickingASnappedWindowLeavesItSnapped(t *testing.T) {
+	tm := centeredWindow(t)
+	tm.drag(40, 7, 0, 14)
+	tm.waitCell(49, 28, "╯") // window 2 fills the left half
+
+	tm.jitterClick(10, 0)
+	tm.typeLine("echo after-click")
+	tm.waitFor("after-click")
+	if tm.cell(49, 28) != "╯" || !strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ") {
+		t.Fatalf("a click undid the snap:\n%s", tm.screen())
+	}
+}
+
+func TestClickingAMaximizedWindowLeavesItMaximized(t *testing.T) {
+	tm := centeredWindow(t)
+	tm.prefix("z")
+	tm.waitUntil("window 2 to fill the screen", func(string) bool {
+		return strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ")
+	})
+
+	tm.jitterClick(20, 0)
+	tm.typeLine("echo after-click")
+	tm.waitFor("after-click")
+	if !strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ") {
+		t.Fatalf("a click un-maximized the window:\n%s", tm.screen())
+	}
+}
