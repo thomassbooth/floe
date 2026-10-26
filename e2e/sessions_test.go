@@ -54,7 +54,7 @@ func TestSessionSwitcher(t *testing.T) {
 	tm.waitBadge("2")
 
 	tm.prefix("s")
-	tm.waitFor("Sessions")
+	tm.waitFor("enter switch")
 	t.Logf("switcher:\n%s", tm.screen())
 	screen := tm.screen()
 	if !strings.Contains(screen, "● 2") || !strings.Contains(screen, "1 window") {
@@ -64,18 +64,18 @@ func TestSessionSwitcher(t *testing.T) {
 	tm.send("k")
 	tm.send("\r")
 	tm.waitBadge("1")
-	tm.waitUntil("switcher to close", func(s string) bool { return !strings.Contains(s, "Sessions") })
+	tm.waitUntil("switcher to close", func(s string) bool { return !strings.Contains(s, "enter switch") })
 
 	// Kill session 2 from the switcher; only session 1 remains.
 	tm.prefix("s")
-	tm.waitFor("Sessions")
+	tm.waitFor("enter switch")
 	tm.send("j")
 	tm.send("x")
 	tm.waitUntil("session 2 to disappear", func(s string) bool {
 		return !strings.Contains(s, "  2  ") && !strings.Contains(s, "● 2") && strings.Count(s, "window") == 1
 	})
 	tm.send("\x1b")
-	tm.waitUntil("switcher to close", func(s string) bool { return !strings.Contains(s, "Sessions") })
+	tm.waitUntil("switcher to close", func(s string) bool { return !strings.Contains(s, "enter switch") })
 	tm.waitBadge("1")
 }
 

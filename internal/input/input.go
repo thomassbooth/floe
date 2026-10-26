@@ -48,6 +48,9 @@ type Binding struct {
 	Action  Action
 	// Help is a short description, such as "split right".
 	Help string
+	// Group names the section the binding is listed under in help, such as
+	// "Windows".
+	Group string
 	// Repeat lets the binding be pressed again without the prefix.
 	Repeat bool
 }

@@ -39,6 +39,9 @@ func (m Model) render() (string, *tea.Cursor) {
 		m.switcher.draw(canvas, m.snap.Area, m.sessions, m.theme)
 		cursor = nil
 	}
+	if m.keys.Mode() == input.Prefix {
+		m.drawWhichKey(canvas, m.snap.Area)
+	}
 
 	bar := uv.Rect(0, m.height-statusBarHeight, m.width, statusBarHeight)
 	if m.prompt != nil {
@@ -181,7 +184,8 @@ func (m Model) statusBar(width int) string {
 	case m.notice != "":
 		right = bar.Foreground(t.Error).Render("✗ " + m.notice + " ")
 	case m.keys.Mode() == input.Prefix:
-		right = badge.Render("PREFIX") + bar.Render(" ") + m.hints(bar, dim, false)
+		// The full list is in the which-key popup.
+		right = badge.Render("PREFIX") + dim.Render(" esc cancel ")
 	case m.keys.Mode() == input.Repeat:
 		right = badge.Render("REPEAT") + bar.Render(" ") + m.hints(bar, dim, true) + dim.Render("· any other key exits ")
 	default:
@@ -214,16 +218,18 @@ func (m Model) promptBar(width int) (string, int) {
 	return ansi.Truncate(line, width, ""), min(cursor, width-1)
 }
 
+// hint is one line of help: the keys for a command and what it does.
 type hint struct {
-	keys []domain.Key
-	help string
+	keys  []domain.Key
+	help  string
+	group string
 }
 
-// hints describes the keymap compactly, folding the directional bindings of
-// focus and resize, and the session cycling pair, into one entry each.
-func (m Model) hints(key, dim lipgloss.Style, repeatOnly bool) string {
+// hintList describes the keymap compactly, folding the directional bindings
+// of focus and resize, and the session cycling pair, into one entry each.
+func (m Model) hintList(repeatOnly bool) []hint {
 	var list []hint
-	group := map[string]int{}
+	index := map[string]int{}
 	for _, b := range m.keys.Keymap().Bindings {
 		if repeatOnly && !b.Repeat {
 			continue
@@ -236,16 +242,21 @@ func (m Model) hints(key, dim lipgloss.Style, repeatOnly bool) string {
 			name = "resize"
 		}
 		if b.Action == input.ActionPrevSession || b.Action == input.ActionNextSession {
-			name = "prev/next session"
+			name = "prev/next"
 		}
-		if i, ok := group[name]; ok {
+		if i, ok := index[name]; ok {
 			list[i].keys = append(list[i].keys, b.Keys[0])
 			continue
 		}
-		group[name] = len(list)
-		list = append(list, hint{keys: []domain.Key{b.Keys[0]}, help: name})
+		index[name] = len(list)
+		list = append(list, hint{keys: []domain.Key{b.Keys[0]}, help: name, group: b.Group})
 	}
+	return list
+}
 
+// hints renders hintList on one line for the status bar.
+func (m Model) hints(key, dim lipgloss.Style, repeatOnly bool) string {
+	list := m.hintList(repeatOnly)
 	parts := make([]string, len(list))
 	for i, h := range list {
 		parts[i] = key.Bold(true).Render(joinKeys(h.keys)) + dim.Render(" "+h.help)
