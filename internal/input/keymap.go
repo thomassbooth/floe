@@ -29,6 +29,7 @@ func DefaultKeymap() Keymap {
 			{Keys: []domain.Key{char('L'), special(domain.KeyRight, domain.ModShift)}, Command: domain.ResizeWindow{Dir: domain.Right, Amount: resizeStep}, Group: "Windows", Help: "resize right", Repeat: true},
 
 			{Keys: []domain.Key{char('=')}, Command: domain.Tidy{}, Group: "Windows", Help: "tidy"},
+			{Keys: []domain.Key{char('a')}, Action: ActionArrange, Group: "Windows", Help: "arrange"},
 			{Keys: []domain.Key{char('z')}, Command: domain.ToggleMaximize{}, Group: "Windows", Help: "maximize"},
 			{Keys: []domain.Key{char('x')}, Command: domain.CloseWindow{}, Group: "Windows", Help: "close"},
 
@@ -39,5 +40,47 @@ func DefaultKeymap() Keymap {
 			{Keys: []domain.Key{char(')')}, Action: ActionNextSession, Group: "Sessions", Help: "next session"},
 			{Keys: []domain.Key{char('q')}, Command: domain.KillSession{}, Group: "Sessions", Help: "kill session"},
 		},
+		Arrange: arrangeBindings(),
 	}
+}
+
+// arrangeBindings are the keys of arrange mode. Moves and resizes go two
+// columns or one row at a time, about the same distance on screen.
+func arrangeBindings() []Binding {
+	move := func(d domain.Direction) domain.Command {
+		return domain.MoveWindow{Dir: d, Amount: nudge(d)}
+	}
+	resize := func(d domain.Direction) domain.Command {
+		return domain.ResizeWindow{Dir: d, Amount: nudge(d)}
+	}
+	return []Binding{
+		{Keys: []domain.Key{char('h'), special(domain.KeyLeft, 0)}, Command: move(domain.Left), Help: "move"},
+		{Keys: []domain.Key{char('j'), special(domain.KeyDown, 0)}, Command: move(domain.Down), Help: "move"},
+		{Keys: []domain.Key{char('k'), special(domain.KeyUp, 0)}, Command: move(domain.Up), Help: "move"},
+		{Keys: []domain.Key{char('l'), special(domain.KeyRight, 0)}, Command: move(domain.Right), Help: "move"},
+
+		{Keys: []domain.Key{char('H'), special(domain.KeyLeft, domain.ModShift)}, Command: resize(domain.Left), Help: "resize"},
+		{Keys: []domain.Key{char('J'), special(domain.KeyDown, domain.ModShift)}, Command: resize(domain.Down), Help: "resize"},
+		{Keys: []domain.Key{char('K'), special(domain.KeyUp, domain.ModShift)}, Command: resize(domain.Up), Help: "resize"},
+		{Keys: []domain.Key{char('L'), special(domain.KeyRight, domain.ModShift)}, Command: resize(domain.Right), Help: "resize"},
+
+		{Keys: []domain.Key{special(domain.KeyTab, 0)}, Command: domain.CycleFocus{Delta: 1}, Help: "switch"},
+		{Keys: []domain.Key{special(domain.KeyTab, domain.ModShift)}, Command: domain.CycleFocus{Delta: -1}, Help: "switch"},
+
+		{Keys: []domain.Key{special(domain.KeyEscape, 0), special(domain.KeyEnter, 0), char('a'), char('q')}, Action: ActionArrange, Help: "done"},
+
+		{Keys: []domain.Key{char('=')}, Command: domain.Tidy{}, Help: "tidy"},
+		{Keys: []domain.Key{char('z')}, Command: domain.ToggleMaximize{}, Help: "maximize"},
+		{Keys: []domain.Key{char('c')}, Action: ActionNewWindow, Help: "new window"},
+		{Keys: []domain.Key{char('|')}, Command: domain.SplitWindow{Dir: domain.Right}, Help: "split right"},
+		{Keys: []domain.Key{char('-')}, Command: domain.SplitWindow{Dir: domain.Down}, Help: "split down"},
+		{Keys: []domain.Key{char('x')}, Command: domain.CloseWindow{}, Help: "close"},
+	}
+}
+
+func nudge(d domain.Direction) int {
+	if d.Axis() == domain.AxisX {
+		return 2
+	}
+	return 1
 }

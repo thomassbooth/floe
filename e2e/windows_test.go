@@ -49,6 +49,20 @@ func (tm *term) waitCell(x, y int, want string) {
 	tm.waitUntil(fmt.Sprintf("%q at (%d,%d)", want, x, y), func(string) bool { return tm.cell(x, y) == want })
 }
 
+// arrange turns on arrange mode, where windows can be dragged.
+func (tm *term) arrange() {
+	tm.t.Helper()
+	tm.prefix("a")
+	tm.waitFor("ARRANGE")
+}
+
+// leaveArrange turns arrange mode off so keys reach the shell again.
+func (tm *term) leaveArrange() {
+	tm.t.Helper()
+	tm.send("\x1b")
+	tm.waitUntil("arrange mode to end", func(s string) bool { return !strings.Contains(s, "ARRANGE") })
+}
+
 // twoWindows starts mux at 100x30 with window 1 on the left half and
 // window 2 on the right half, focused.
 func twoWindows(t *testing.T) *term {
@@ -64,6 +78,7 @@ func twoWindows(t *testing.T) *term {
 
 func TestDragTitleMovesWindow(t *testing.T) {
 	tm := twoWindows(t)
+	tm.arrange()
 	// Window 2 is full height, so shorten it first to give it room to move
 	// down: drag its bottom edge from row 28 up to row 18.
 	tm.drag(75, 28, 75, 18)
@@ -77,7 +92,7 @@ func TestDragTitleMovesWindow(t *testing.T) {
 	tm.release(30, 5)
 
 	tm.waitCell(20, 5, "╭")
-	if l := tm.lines()[5]; column(l, "╭─ 2 sh ") != 20 {
+	if l := tm.lines()[5]; column(l, "╭┄ 2 sh ") != 20 {
 		t.Fatalf("window 2 should start at column 20: %q", l)
 	}
 	t.Logf("after move:\n%s", tm.screen())
@@ -85,17 +100,19 @@ func TestDragTitleMovesWindow(t *testing.T) {
 
 func TestDragWindowStaysOnScreen(t *testing.T) {
 	tm := twoWindows(t)
+	tm.arrange()
 	tm.drag(60, 0, 99, 29)
 	// Window 2 is 50x29, so it cannot move at all down or right.
 	tm.waitCell(50, 0, "╭")
 	tm.drag(60, 0, 0, 0)
 	tm.waitUntil("window 2 at the left edge", func(string) bool {
-		return strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ")
+		return strings.HasPrefix(tm.lines()[0], "╭┄ 2 sh ")
 	})
 }
 
 func TestDragCornerResizesWindow(t *testing.T) {
 	tm := twoWindows(t)
+	tm.arrange()
 	// Move window 2 left by 20; at full height it stays on row 0.
 	tm.drag(60, 0, 40, 2)
 	tm.waitCell(30, 0, "╭")
@@ -103,6 +120,7 @@ func TestDragCornerResizesWindow(t *testing.T) {
 	tm.drag(79, 28, 69, 18)
 	tm.waitCell(69, 18, "╯")
 
+	tm.leaveArrange()
 	tm.typeLine("stty size")
 	tm.waitFor("17 38") // 40x19 frame -> 38x17 terminal
 }
@@ -131,6 +149,7 @@ func TestMaximizeButton(t *testing.T) {
 
 func TestClickBringsWindowToFront(t *testing.T) {
 	tm := twoWindows(t)
+	tm.arrange()
 	// Drag window 2 so it overlaps window 1, then click the part of window
 	// 1 still showing.
 	tm.drag(60, 0, 40, 0) // window 2 now starts at column 30
@@ -140,7 +159,7 @@ func TestClickBringsWindowToFront(t *testing.T) {
 	tm.release(5, 5)
 	// Window 1 is on top: its right border at column 49 is drawn over
 	// window 2.
-	tm.waitCell(49, 5, "│")
+	tm.waitCell(49, 5, "┆")
 	if got := tm.cell(49, 0); got != "╮" {
 		t.Fatalf("window 1's corner should be on top, got %q", got)
 	}

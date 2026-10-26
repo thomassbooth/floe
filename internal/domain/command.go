@@ -70,6 +70,18 @@ type ResizeWindow struct {
 	Amount int
 }
 
+// MoveWindow shifts the focused window Amount cells in direction Dir.
+type MoveWindow struct {
+	Dir    Direction
+	Amount int
+}
+
+// CycleFocus moves focus Delta windows along in window order, wrapping
+// around: 1 is the next window, -1 the previous.
+type CycleFocus struct {
+	Delta int
+}
+
 // PlaceWindow moves and sizes a window. It is kept on screen.
 type PlaceWindow struct {
 	ID    WindowID
@@ -127,6 +139,8 @@ func (SplitWindow) command()      {}
 func (FocusDirection) command()   {}
 func (FocusWindow) command()      {}
 func (ResizeWindow) command()     {}
+func (MoveWindow) command()       {}
+func (CycleFocus) command()       {}
 func (PlaceWindow) command()      {}
 func (ResizeWindowEdge) command() {}
 func (SnapWindow) command()       {}

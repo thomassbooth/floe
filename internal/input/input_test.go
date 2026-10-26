@@ -111,3 +111,40 @@ func TestSessionBindings(t *testing.T) {
 		{char(')'), ActionNextSession, Normal},
 	})
 }
+
+func TestArrangeModeCapturesKeysUntilDone(t *testing.T) {
+	run(t, []step{
+		{prefix, nil, Prefix},
+		{char('a'), ActionArrange, Arrange},
+		{char('l'), domain.MoveWindow{Dir: domain.Right, Amount: 2}, Arrange},
+		{char('j'), domain.MoveWindow{Dir: domain.Down, Amount: 1}, Arrange},
+		{char('L'), domain.ResizeWindow{Dir: domain.Right, Amount: 2}, Arrange},
+		{special(domain.KeyTab, domain.ModShift), domain.CycleFocus{Delta: -1}, Arrange},
+		// Keys without a binding are swallowed, not typed into the pane.
+		{char('w'), nil, Arrange},
+		{prefix, nil, Arrange},
+		{special(domain.KeyEscape, 0), ActionArrange, Normal},
+		{char('l'), domain.SendKey{Key: char('l')}, Normal},
+	})
+}
+
+func TestToggleArrangeAndReset(t *testing.T) {
+	m := NewMachine(DefaultKeymap())
+	m.ToggleArrange()
+	if m.Mode() != Arrange {
+		t.Fatal("expected arrange mode")
+	}
+	m.Reset()
+	if m.Mode() != Arrange {
+		t.Fatal("reset must not leave arrange mode")
+	}
+	m.ToggleArrange()
+	if m.Mode() != Normal {
+		t.Fatal("expected normal mode")
+	}
+	m.Handle(prefix)
+	m.Reset()
+	if m.Mode() != Normal {
+		t.Fatal("reset should cancel the prefix")
+	}
+}

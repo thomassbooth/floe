@@ -16,6 +16,9 @@ const (
 	// Repeat follows a repeatable binding: further repeatable bindings run
 	// without pressing the prefix again, and any other key returns to Normal.
 	Repeat
+	// Arrange is for moving and resizing windows: keys run the arrange
+	// bindings instead of going to the pane, until the mode is left.
+	Arrange
 )
 
 // Action is something a binding asks the client itself to do, such as
@@ -24,6 +27,8 @@ type Action int
 
 const (
 	ActionNone Action = iota
+	// ActionArrange enters arrange mode, or leaves it from inside.
+	ActionArrange
 	// ActionNewWindow opens a window in the middle of the terminal, half its
 	// width and height.
 	ActionNewWindow
@@ -60,8 +65,11 @@ type Binding struct {
 
 // Keymap is the full set of bindings.
 type Keymap struct {
-	Prefix   domain.Key
+	Prefix domain.Key
+	// Bindings run after the prefix key.
 	Bindings []Binding
+	// Arrange bindings run directly while in arrange mode.
+	Arrange []Binding
 }
 
 // Machine tracks the current mode and maps keys to commands.
@@ -92,21 +100,34 @@ func (m *Machine) Handle(k domain.Key) (Result, bool) {
 		case k.Code == domain.KeyEscape && k.Mod == 0:
 			return Result{}, false
 		}
-		b, ok := m.lookup(k)
+		b, ok := lookup(m.keymap.Bindings, k)
 		if !ok {
 			return Result{}, false
 		}
-		if b.Repeat {
+		switch {
+		case b.Action == ActionArrange:
+			m.mode = Arrange
+		case b.Repeat:
 			m.mode = Repeat
 		}
 		return b.result(), true
 
 	case Repeat:
-		if b, ok := m.lookup(k); ok && b.Repeat {
+		if b, ok := lookup(m.keymap.Bindings, k); ok && b.Repeat {
 			return b.result(), true
 		}
 		m.mode = Normal
 		return m.Handle(k)
+
+	case Arrange:
+		b, ok := lookup(m.keymap.Arrange, k)
+		if !ok {
+			return Result{}, false
+		}
+		if b.Action == ActionArrange {
+			m.mode = Normal
+		}
+		return b.result(), true
 	}
 
 	if k.Matches(m.keymap.Prefix) {
@@ -120,11 +141,25 @@ func (b Binding) result() Result {
 	return Result{Command: b.Command, Action: b.Action}
 }
 
-// Reset returns to Normal mode, for example when focus moves by mouse.
-func (m *Machine) Reset() { m.mode = Normal }
+// Reset cancels a pending prefix or repeat, for example when focus moves by
+// mouse. Arrange mode stays on until it is left on purpose.
+func (m *Machine) Reset() {
+	if m.mode != Arrange {
+		m.mode = Normal
+	}
+}
 
-func (m *Machine) lookup(k domain.Key) (Binding, bool) {
-	for _, b := range m.keymap.Bindings {
+// ToggleArrange enters arrange mode, or leaves it.
+func (m *Machine) ToggleArrange() {
+	if m.mode == Arrange {
+		m.mode = Normal
+	} else {
+		m.mode = Arrange
+	}
+}
+
+func lookup(bindings []Binding, k domain.Key) (Binding, bool) {
+	for _, b := range bindings {
 		for _, bk := range b.Keys {
 			if k.Matches(bk) {
 				return b, true

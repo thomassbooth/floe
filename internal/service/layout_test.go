@@ -111,3 +111,19 @@ func TestServiceSnapsAndTidies(t *testing.T) {
 		t.Fatalf("pane 1 resized to %+v", got)
 	}
 }
+
+func TestServiceMovesAndCyclesWindows(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.NewWindow{Frame: domain.Rect{X: 20, Y: 6, W: 40, H: 12}})
+	c.layoutUntil(windows(2))
+
+	c.apply(domain.MoveWindow{Dir: domain.Right, Amount: 2})
+	if w := c.layout().Windows[1]; w.Frame.X != 22 {
+		t.Fatalf("window 2 = %+v", w.Frame)
+	}
+	c.apply(domain.CycleFocus{Delta: 1})
+	if snap := c.layout(); snap.Focused != 1 {
+		t.Fatalf("focus = %d, want 1", snap.Focused)
+	}
+}

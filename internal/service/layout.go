@@ -31,6 +31,11 @@ func (l *layoutService) resize(sess *domain.Session, dir domain.Direction, amoun
 	return sess.Resize(dir, amount)
 }
 
+// move shifts the focused window. It reports whether the layout changed.
+func (l *layoutService) move(sess *domain.Session, dir domain.Direction, amount int) bool {
+	return sess.Move(dir, amount)
+}
+
 // place moves and sizes a window. It reports whether the layout changed.
 func (l *layoutService) place(sess *domain.Session, id domain.WindowID, frame domain.Rect) bool {
 	return sess.Place(id, frame)

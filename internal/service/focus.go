@@ -19,3 +19,9 @@ func (f *focusService) direction(sess *domain.Session, dir domain.Direction) boo
 func (f *focusService) window(sess *domain.Session, id domain.WindowID) bool {
 	return sess.Focus(id)
 }
+
+// cycle moves focus along the windows in order. It reports whether focus
+// changed.
+func (f *focusService) cycle(sess *domain.Session, delta int) bool {
+	return sess.CycleFocus(delta)
+}

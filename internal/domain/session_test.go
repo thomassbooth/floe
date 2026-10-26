@@ -328,6 +328,36 @@ func TestSessionKeyboardResize(t *testing.T) {
 	}
 }
 
+func TestSessionMoveShiftsFocusedWindow(t *testing.T) {
+	s := newSession(t)
+	s.Place(1, Rect{X: 10, Y: 5, W: 30, H: 10})
+	s.Move(Right, 4)
+	s.Move(Down, 2)
+	if got := frames(s)[1]; got != (Rect{X: 14, Y: 7, W: 30, H: 10}) {
+		t.Fatalf("got %+v", got)
+	}
+	s.Move(Left, 99)
+	if got := frames(s)[1]; got.X != 0 {
+		t.Fatalf("should stop at the screen edge, got %+v", got)
+	}
+	if s.Move(Left, 1) {
+		t.Fatal("already at the edge")
+	}
+}
+
+func TestSessionCycleFocusWraps(t *testing.T) {
+	s := newSession(t, Right, Right) // 3 focused
+	if !s.CycleFocus(1) || focusedID(t, s) != 1 {
+		t.Fatalf("next after 3 should wrap to 1, got %d", focusedID(t, s))
+	}
+	if !s.CycleFocus(-1) || focusedID(t, s) != 3 {
+		t.Fatalf("previous from 1 should wrap to 3, got %d", focusedID(t, s))
+	}
+	if o := order(s); o[len(o)-1] != 3 {
+		t.Fatalf("the focused window comes to the front: %v", o)
+	}
+}
+
 func TestSessionToggleMaximize(t *testing.T) {
 	s := newSession(t, Right)
 	if !s.ToggleMaximize(2) {

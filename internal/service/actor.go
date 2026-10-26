@@ -164,6 +164,14 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		if s.focus.window(sess, c.ID) {
 			s.markDirty(sess.ID())
 		}
+	case domain.CycleFocus:
+		if s.focus.cycle(sess, c.Delta) {
+			s.markDirty(sess.ID())
+		}
+	case domain.MoveWindow:
+		if s.layout.move(sess, c.Dir, c.Amount) {
+			s.markDirty(sess.ID())
+		}
 	case domain.ResizeWindow:
 		if s.layout.resize(sess, c.Dir, c.Amount) {
 			s.markDirty(sess.ID())

@@ -4,6 +4,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomasbooth/multiplexer/internal/input"
 )
 
 // part is what piece of a window the mouse is over.
@@ -121,16 +122,25 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	m.keys.Reset()
 	m.backend.Apply(domain.FocusWindow{ID: id})
 
+	// Moving and resizing only happen in arrange mode.
 	switch t.part {
 	case partClose:
 		m.backend.Apply(domain.CloseWindow{ID: id})
 	case partMaximize:
 		m.backend.Apply(domain.ToggleMaximize{ID: id})
 	case partTitle:
-		m.drag = m.moveDrag(t.window, mouse.X, mouse.Y)
+		if m.arranging() {
+			m.drag = m.moveDrag(t.window, mouse.X, mouse.Y)
+		}
 	case partEdge:
-		m.drag = &drag{window: id, edges: t.edges, start: domain.Point{X: mouse.X, Y: mouse.Y}}
+		if m.arranging() {
+			m.drag = &drag{window: id, edges: t.edges, start: domain.Point{X: mouse.X, Y: mouse.Y}}
+		}
 	}
+}
+
+func (m Model) arranging() bool {
+	return m.keys.Mode() == input.Arrange
 }
 
 // statusBarClick handles a click on the status bar. A left click on the
@@ -139,6 +149,10 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 func (m *Model) statusBarClick(x int, button tea.MouseButton) {
 	if m.prompt != nil || x >= m.width {
 		return // the prompt replaces the badge and tabs
+	}
+	if _, toggle := m.statusBar(m.width); button == tea.MouseLeft && toggle.ok && x >= toggle.x0 && x < toggle.x1 {
+		m.keys.ToggleArrange()
+		return
 	}
 	if button == tea.MouseLeft && x < m.badgeWidth() {
 		m.keys.Reset()

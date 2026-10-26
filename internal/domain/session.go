@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 )
 
@@ -292,6 +293,41 @@ func (s *Session) Place(id WindowID, frame Rect) bool {
 	}
 	delete(s.restore, id)
 	return s.stack.SetFrame(id, fit(frame, s.area))
+}
+
+// Move shifts the focused window amount cells in direction dir, keeping it
+// on screen. It reports whether the window moved.
+func (s *Session) Move(dir Direction, amount int) bool {
+	id, ok := s.focused()
+	if !ok {
+		return false
+	}
+	f, _ := s.frame(id)
+	switch dir {
+	case Left:
+		f.X -= amount
+	case Right:
+		f.X += amount
+	case Up:
+		f.Y -= amount
+	case Down:
+		f.Y += amount
+	}
+	return s.Place(id, f)
+}
+
+// CycleFocus moves focus delta windows along in window order, wrapping
+// around: 1 is the next window, -1 the previous. It reports whether focus
+// changed.
+func (s *Session) CycleFocus(delta int) bool {
+	cur, ok := s.focused()
+	if !ok {
+		return false
+	}
+	ids := slices.Sorted(maps.Keys(s.windows))
+	i := slices.Index(ids, cur)
+	n := len(ids)
+	return s.Focus(ids[((i+delta)%n+n)%n])
 }
 
 // ResizeEdge moves one edge of a window to pos, leaving the opposite edge

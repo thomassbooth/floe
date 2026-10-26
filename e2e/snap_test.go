@@ -5,14 +5,11 @@ import (
 	"testing"
 )
 
-// centeredWindow starts mux at 100x30 and opens window 2 in the middle:
-// 50x15 at (25, 7).
+// centeredWindow starts mux at 100x30, opens window 2 in the middle (50x15
+// at (25, 7)) and turns on arrange mode.
 func centeredWindow(t *testing.T) *term {
-	tm := launch(t, 100, 30)
-	tm.waitFor(" 1 sh ")
-	tm.prefix("c")
-	tm.waitFor(" 2 sh ")
-	tm.waitCell(25, 7, "╭")
+	tm := centeredWindowNormal(t)
+	tm.arrange()
 	return tm
 }
 
@@ -31,7 +28,7 @@ func TestDraggingToTheEdgeSnapsAndDraggingAwayKeepsTheSize(t *testing.T) {
 	tm.release(0, 14)
 
 	tm.waitUntil("window 2 to fill the left half", func(string) bool {
-		return strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ")
+		return strings.HasPrefix(tm.lines()[0], "╭┄ 2 sh ")
 	})
 	tm.waitCell(49, 0, "╮")
 	tm.waitCell(0, 28, "╰")
@@ -48,9 +45,9 @@ func TestDraggingToTheEdgeSnapsAndDraggingAwayKeepsTheSize(t *testing.T) {
 
 func TestDraggingAMaximizedWindowRestoresItsSize(t *testing.T) {
 	tm := centeredWindow(t)
-	tm.prefix("z")
+	tm.send("z") // in arrange mode, z maximizes directly
 	tm.waitUntil("window 2 to fill the screen", func(string) bool {
-		return strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ")
+		return strings.HasPrefix(tm.lines()[0], "╭┄ 2 sh ")
 	})
 
 	// A maximized window cannot move at full size, so it comes away at its
@@ -67,6 +64,7 @@ func TestDraggingAMaximizedWindowRestoresItsSize(t *testing.T) {
 func TestDraggingAFullScreenWindowPopsItOut(t *testing.T) {
 	tm := launch(t, 100, 30)
 	tm.waitFor(" 1 sh ")
+	tm.arrange()
 
 	// The only window fills the screen; dragging it shrinks it to half.
 	tm.press(20, 0)
@@ -87,8 +85,10 @@ func TestSnapToCorner(t *testing.T) {
 func TestPlainClickOnTitleDoesNotSnapOrMove(t *testing.T) {
 	tm := launch(t, 100, 30)
 	tm.waitFor(" 1 sh ")
+	tm.arrange()
 	tm.click(0, 0) // top-left corner of a full-screen window, on the edge
 	tm.click(20, 0)
+	tm.leaveArrange()
 	tm.typeLine("echo still-here")
 	tm.waitFor("still-here")
 	if l := tm.lines()[0]; !strings.HasPrefix(l, "╭─ 1 sh ") || !strings.HasSuffix(l, "╮") {
@@ -98,10 +98,10 @@ func TestPlainClickOnTitleDoesNotSnapOrMove(t *testing.T) {
 
 func TestTidyFillsTheScreen(t *testing.T) {
 	tm := centeredWindow(t)
-	tm.prefix("c")
+	tm.send("c") // arrange mode keys work without the prefix
 	tm.waitFor(" 3 sh ")
 
-	tm.prefix("=")
+	tm.send("=")
 	// Three windows: a left half and two right quarters, with no gaps.
 	tm.waitCell(49, 0, "╮")
 	tm.waitCell(50, 0, "╭")
@@ -127,6 +127,7 @@ func TestClickingASnappedWindowLeavesItSnapped(t *testing.T) {
 	tm.waitCell(49, 28, "╯") // window 2 fills the left half
 
 	tm.jitterClick(10, 0)
+	tm.leaveArrange()
 	tm.typeLine("echo after-click")
 	tm.waitFor("after-click")
 	if tm.cell(49, 28) != "╯" || !strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ") {
@@ -136,12 +137,13 @@ func TestClickingASnappedWindowLeavesItSnapped(t *testing.T) {
 
 func TestClickingAMaximizedWindowLeavesItMaximized(t *testing.T) {
 	tm := centeredWindow(t)
-	tm.prefix("z")
+	tm.send("z")
 	tm.waitUntil("window 2 to fill the screen", func(string) bool {
-		return strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ")
+		return strings.HasPrefix(tm.lines()[0], "╭┄ 2 sh ")
 	})
 
 	tm.jitterClick(20, 0)
+	tm.leaveArrange()
 	tm.typeLine("echo after-click")
 	tm.waitFor("after-click")
 	if !strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ") {

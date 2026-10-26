@@ -126,7 +126,7 @@ func (m Model) drawWhichKey(scr uv.Screen, area domain.Rect) {
 func (m Model) whichKeyGroups() []whichKeyGroup {
 	var groups []whichKeyGroup
 	index := map[string]int{}
-	for _, h := range m.hintList(false) {
+	for _, h := range hintList(m.keys.Keymap().Bindings, false) {
 		i, ok := index[h.group]
 		if !ok {
 			i = len(groups)

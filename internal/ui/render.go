@@ -35,6 +35,9 @@ func (m Model) render() (string, *tea.Cursor) {
 		}
 	}
 
+	if m.arranging() {
+		cursor = nil // keys go to arranging, not the shell
+	}
 	if m.drag != nil && m.drag.zone != domain.ZoneNone {
 		m.drawZone(canvas, m.drag.zone.Rect(m.snap.Area))
 	}
@@ -52,7 +55,8 @@ func (m Model) render() (string, *tea.Cursor) {
 		uv.NewStyledString(line).Draw(canvas, bar)
 		cursor = tea.NewCursor(x, bar.Min.Y)
 	} else {
-		uv.NewStyledString(m.statusBar(m.width)).Draw(canvas, bar)
+		line, _ := m.statusBar(m.width)
+		uv.NewStyledString(line).Draw(canvas, bar)
 	}
 
 	return canvas.Render(), cursor
@@ -65,6 +69,8 @@ type border struct {
 
 var (
 	roundedBorder = border{"╭", "╮", "╰", "╯", "─", "│"}
+	// dashedBorder marks windows as movable in arrange mode.
+	dashedBorder = border{"╭", "╮", "╰", "╯", "┄", "┆"}
 	// heavyBorder marks the window being dragged.
 	heavyBorder = border{"┏", "┓", "┗", "┛", "━", "┃"}
 	// snapBorder outlines the zone a dragged window will snap to.
@@ -89,8 +95,11 @@ func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 		style.Fg = m.theme.Accent
 	}
 	b := roundedBorder
-	if m.drag != nil && m.drag.window == w.ID {
+	switch {
+	case m.drag != nil && m.drag.window == w.ID:
 		b = heavyBorder
+	case m.arranging():
+		b = dashedBorder
 	}
 	set := func(x, y int, s string) {
 		c := uv.Cell{Content: s, Width: 1, Style: style}
@@ -187,7 +196,8 @@ func gridCursor(area domain.Rect, g domain.Grid) *tea.Cursor {
 	return tea.NewCursor(area.X+g.Cursor.X, area.Y+g.Cursor.Y)
 }
 
-func (m Model) statusBar(width int) string {
+// statusBar draws the bottom line and says where its arrange toggle is.
+func (m Model) statusBar(width int) (line string, bounds toggleBounds) {
 	t := m.theme
 	bar := lipgloss.NewStyle().Background(t.BarBg).Foreground(t.BarFg)
 	dim := bar.Foreground(t.BarDim)
@@ -204,7 +214,7 @@ func (m Model) statusBar(width int) string {
 		}
 	}
 
-	var right string
+	var right, toggle string
 	switch {
 	case m.notice != "":
 		right = bar.Foreground(t.Error).Render("✗ " + m.notice + " ")
@@ -212,9 +222,14 @@ func (m Model) statusBar(width int) string {
 		// The full list is in the which-key popup.
 		right = badge.Render("PREFIX") + dim.Render(" esc cancel ")
 	case m.keys.Mode() == input.Repeat:
-		right = badge.Render("REPEAT") + bar.Render(" ") + m.hints(bar, dim, true) + dim.Render("· any other key exits ")
+		right = badge.Render("REPEAT") + bar.Render(" ") + hints(m.keys.Keymap().Bindings, bar, dim, true) + dim.Render("· any other key exits ")
+	case m.keys.Mode() == input.Arrange:
+		// The badge doubles as the button that leaves arrange mode.
+		toggle = badge.Render("ARRANGE")
+		right = toggle + bar.Render(" ") + hints(m.keys.Keymap().Arrange, bar, dim, false)
 	default:
-		right = bar.Bold(true).Render(m.keys.Keymap().Prefix.String()) + dim.Render(" prefix ")
+		toggle = bar.Background(t.ActiveTabBg).Render(" arrange ")
+		right = toggle + bar.Render("  ") + bar.Bold(true).Render(m.keys.Keymap().Prefix.String()) + dim.Render(" prefix ")
 	}
 
 	l := left.String()
@@ -223,7 +238,18 @@ func (m Model) statusBar(width int) string {
 		right = ansi.Truncate(right, max(room, 0), "…")
 	}
 	gap := max(width-lipgloss.Width(l)-lipgloss.Width(right), 0)
-	return ansi.Truncate(l+bar.Render(strings.Repeat(" ", gap))+right, width, "")
+	if toggle != "" {
+		x0 := lipgloss.Width(l) + gap
+		bounds = toggleBounds{x0: x0, x1: min(x0+lipgloss.Width(toggle), width), ok: x0 < width}
+	}
+	return ansi.Truncate(l+bar.Render(strings.Repeat(" ", gap))+right, width, ""), bounds
+}
+
+// toggleBounds is where the arrange toggle sits in the status bar, columns
+// [x0, x1).
+type toggleBounds struct {
+	x0, x1 int
+	ok     bool
 }
 
 // statusTab is a window's tab in the status bar, covering columns
@@ -292,12 +318,12 @@ type hint struct {
 	group string
 }
 
-// hintList describes the keymap compactly, folding the directional bindings
-// of focus and resize, and the session cycling pair, into one entry each.
-func (m Model) hintList(repeatOnly bool) []hint {
+// hintList describes bindings compactly, folding bindings with the same
+// purpose, like the four directions of focus, into one entry each.
+func hintList(bindings []input.Binding, repeatOnly bool) []hint {
 	var list []hint
 	index := map[string]int{}
-	for _, b := range m.keys.Keymap().Bindings {
+	for _, b := range bindings {
 		if repeatOnly && !b.Repeat {
 			continue
 		}
@@ -322,8 +348,8 @@ func (m Model) hintList(repeatOnly bool) []hint {
 }
 
 // hints renders hintList on one line for the status bar.
-func (m Model) hints(key, dim lipgloss.Style, repeatOnly bool) string {
-	list := m.hintList(repeatOnly)
+func hints(bindings []input.Binding, key, dim lipgloss.Style, repeatOnly bool) string {
+	list := hintList(bindings, repeatOnly)
 	parts := make([]string, len(list))
 	for i, h := range list {
 		parts[i] = key.Bold(true).Render(joinKeys(h.keys)) + dim.Render(" "+h.help)
