@@ -158,18 +158,19 @@ func (m *Model) statusBarClick(x int, button tea.MouseButton) {
 	}
 }
 
-// moveDrag starts moving a window grabbed by its title at x, y. A snapped
-// or maximized window comes away at the size it had before, and a free
-// window that fills the screen at half the screen, so either can actually
-// move. The grab point keeps its place along the title.
+// moveDrag starts moving a window grabbed by its title at x, y. The window
+// keeps its size, snapped or not. Only a window filling the whole screen,
+// which could not move otherwise, comes away smaller: at the size it had
+// before being maximized, or else half the screen. The grab point keeps its
+// place along the title.
 func (m Model) moveDrag(w domain.WindowView, x, y int) *drag {
 	f := w.Frame
 	size := f.Size()
-	switch area := m.snap.Area; {
-	case !w.Restore.Empty():
-		size = w.Restore.Size()
-	case f == area:
+	if area := m.snap.Area; f == area {
 		size = domain.Size{W: area.W / 2, H: area.H / 2}
+		if !w.Restore.Empty() {
+			size = w.Restore.Size()
+		}
 	}
 	offset := domain.Point{X: x - f.X, Y: y - f.Y}
 	if size != f.Size() {

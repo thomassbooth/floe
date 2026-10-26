@@ -16,7 +16,7 @@ func centeredWindow(t *testing.T) *term {
 	return tm
 }
 
-func TestDraggingToTheEdgeSnapsAndDraggingAwayRestores(t *testing.T) {
+func TestDraggingToTheEdgeSnapsAndDraggingAwayKeepsTheSize(t *testing.T) {
 	tm := centeredWindow(t)
 
 	// Drag window 2 by its title to the middle of the left edge.
@@ -36,9 +36,27 @@ func TestDraggingToTheEdgeSnapsAndDraggingAwayRestores(t *testing.T) {
 	tm.waitCell(49, 0, "╮")
 	tm.waitCell(0, 28, "╰")
 
-	// Dragging it away gives it back its 50x15 size; the grab point stays
-	// 10 cells along the title.
+	// Dragging it away keeps its 50x29 snapped size. At full height it can
+	// only slide sideways: grabbed 10 cells in, dropped at column 40.
 	tm.press(10, 0)
+	tm.moveTo(30, 5)
+	tm.moveTo(40, 8)
+	tm.release(40, 8)
+	tm.waitCell(30, 0, "╭")
+	tm.waitCell(79, 28, "╯")
+}
+
+func TestDraggingAMaximizedWindowRestoresItsSize(t *testing.T) {
+	tm := centeredWindow(t)
+	tm.prefix("z")
+	tm.waitUntil("window 2 to fill the screen", func(string) bool {
+		return strings.HasPrefix(tm.lines()[0], "╭─ 2 sh ")
+	})
+
+	// A maximized window cannot move at full size, so it comes away at its
+	// 50x15 size from before; grabbed 20 cells into its 100-wide title, the
+	// grab point lands 10 cells into the 50-wide one.
+	tm.press(20, 0)
 	tm.moveTo(30, 5)
 	tm.moveTo(40, 8)
 	tm.release(40, 8)
