@@ -53,6 +53,22 @@ func TestServiceReportsFailedSplit(t *testing.T) {
 	}
 }
 
+func TestServiceOpensWindowAtFrame(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.NewWindow{Frame: domain.Rect{X: 20, Y: 6, W: 40, H: 12}})
+	snap := c.layoutUntil(windows(2))
+	if w := snap.Windows[1]; w.ID != 2 || w.Frame != (domain.Rect{X: 20, Y: 6, W: 40, H: 12}) || !w.Focused {
+		t.Fatalf("new window = %+v", w)
+	}
+	if snap.Windows[0].Frame.W != 80 {
+		t.Fatal("the existing window should not be split")
+	}
+	if got := h.host.size(2); got != (domain.Size{W: 38, H: 10}) {
+		t.Fatalf("pane started at %+v", got)
+	}
+}
+
 func TestServiceClosesWindowByID(t *testing.T) {
 	h := start(t, newFakeHost())
 	c := h.open()

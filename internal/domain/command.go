@@ -47,6 +47,12 @@ type SplitWindow struct {
 	Dir Direction
 }
 
+// NewWindow opens a window at Frame on top of the others, without splitting
+// any. The frame is kept on screen.
+type NewWindow struct {
+	Frame Rect
+}
+
 // FocusDirection moves focus to the window next to the focused one.
 type FocusDirection struct {
 	Dir Direction
@@ -106,6 +112,7 @@ func (AttachSession) command()    {}
 func (CreateSession) command()    {}
 func (SwitchSession) command()    {}
 func (RenameSession) command()    {}
+func (NewWindow) command()        {}
 func (SplitWindow) command()      {}
 func (FocusDirection) command()   {}
 func (FocusWindow) command()      {}

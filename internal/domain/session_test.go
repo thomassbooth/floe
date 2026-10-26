@@ -156,6 +156,41 @@ func TestSessionCloseLeavesUnalignedWindowsAlone(t *testing.T) {
 	}
 }
 
+func TestSessionOpenAt(t *testing.T) {
+	s := newSession(t)
+	center := Rect{X: 20, Y: 6, W: 40, H: 12}
+	w, err := s.OpenAt("sh", 2, center)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := frames(s)
+	if got[w.ID] != center {
+		t.Fatalf("new window = %+v", got[w.ID])
+	}
+	if got[1] != screen {
+		t.Fatalf("existing window should be untouched, got %+v", got[1])
+	}
+	if focusedID(t, s) != w.ID || order(s)[1] != w.ID {
+		t.Fatal("the new window should be focused and on top")
+	}
+
+	// A second one in the same spot steps aside instead of hiding the
+	// first exactly.
+	w3, _ := s.OpenAt("sh", 3, center)
+	if got := frames(s)[w3.ID]; got != (Rect{X: 22, Y: 7, W: 40, H: 12}) {
+		t.Fatalf("second window = %+v", got)
+	}
+
+	// Frames are kept on screen.
+	w4, _ := s.OpenAt("sh", 4, Rect{X: 70, Y: 20, W: 40, H: 12})
+	if got := frames(s)[w4.ID]; got != (Rect{X: 40, Y: 12, W: 40, H: 12}) {
+		t.Fatalf("off-screen window = %+v", got)
+	}
+	if _, err := s.OpenAt("sh", 4, center); err == nil {
+		t.Fatal("a pane may only be shown once")
+	}
+}
+
 func TestSessionOpenWindowRejectsDuplicatePane(t *testing.T) {
 	s := newSession(t)
 	if _, err := s.OpenWindow("sh", Right, 1); err == nil {

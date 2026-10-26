@@ -146,6 +146,14 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 			return err
 		}
 		s.markDirty(sess.ID())
+	case domain.NewWindow:
+		if s.sessions.ending(sess) {
+			return errEnding
+		}
+		if err := s.windows.openAt(sess, c.Frame); err != nil {
+			return err
+		}
+		s.markDirty(sess.ID())
 	case domain.CloseWindow:
 		return s.windows.close(sess, c.ID)
 	case domain.FocusDirection:

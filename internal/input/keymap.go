@@ -14,6 +14,7 @@ func DefaultKeymap() Keymap {
 	return Keymap{
 		Prefix: domain.Key{Code: 'b', Mod: domain.ModCtrl},
 		Bindings: []Binding{
+			{Keys: []domain.Key{char('c')}, Action: ActionNewWindow, Group: "Windows", Help: "new window"},
 			{Keys: []domain.Key{char('|'), char('%')}, Command: domain.SplitWindow{Dir: domain.Right}, Group: "Windows", Help: "split right"},
 			{Keys: []domain.Key{char('-'), char('"')}, Command: domain.SplitWindow{Dir: domain.Down}, Group: "Windows", Help: "split down"},
 

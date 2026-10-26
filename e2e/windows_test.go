@@ -145,3 +145,28 @@ func TestClickBringsWindowToFront(t *testing.T) {
 		t.Fatalf("window 1's corner should be on top, got %q", got)
 	}
 }
+
+func TestNewWindowOpensCenteredAtHalfTheTerminal(t *testing.T) {
+	tm := launch(t, 100, 30)
+	tm.waitFor(" 1 sh ")
+	tm.waitPrompts(1)
+
+	// Half of 100x30 is 50x15, centered: columns 25-74, rows 7-21.
+	tm.prefix("c")
+	tm.waitFor(" 2 sh ")
+	tm.waitCell(25, 7, "╭")
+	tm.waitCell(74, 21, "╯")
+	t.Logf("new window:\n%s", tm.screen())
+	if l := tm.lines()[0]; !strings.HasPrefix(l, "╭─ 1 sh ") || !strings.HasSuffix(l, "╮") {
+		t.Fatalf("window 1 should still fill the screen: %q", l)
+	}
+
+	tm.waitPrompts(2)
+	tm.typeLine("stty size")
+	tm.waitFor("13 48")
+
+	// Another one steps aside rather than covering it exactly.
+	tm.prefix("c")
+	tm.waitFor(" 3 sh ")
+	tm.waitCell(27, 8, "╭")
+}

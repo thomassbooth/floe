@@ -26,6 +26,22 @@ func (w *windowService) open(sess *domain.Session, dir domain.Direction) error {
 	if err != nil {
 		return err
 	}
+	return w.start(sess, win)
+}
+
+// openAt adds a window at frame, on top of the others, and starts a pane
+// sized to fit.
+func (w *windowService) openAt(sess *domain.Session, frame domain.Rect) error {
+	win, err := sess.OpenAt(w.title, w.server.NewPaneID(), frame)
+	if err != nil {
+		return err
+	}
+	return w.start(sess, win)
+}
+
+// start runs the pane for a newly opened window, closing the window again
+// if the pane cannot start.
+func (w *windowService) start(sess *domain.Session, win domain.Window) error {
 	size := w.layout.contentSize(sess, win.ID)
 	if err := w.host.Spawn(win.Pane, size); err != nil {
 		_ = sess.CloseWindow(win.ID)

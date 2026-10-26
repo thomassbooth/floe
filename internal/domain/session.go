@@ -89,9 +89,6 @@ func (s *Session) OpenWindow(title string, dir Direction, pane PaneID) (Window, 
 		return Window{}, fmt.Errorf("open window: pane %d is already shown", pane)
 	}
 
-	s.lastWindow++
-	w := &Window{ID: s.lastWindow, Pane: pane, Title: title}
-
 	frame := s.area
 	if cur, ok := s.focused(); ok {
 		f, _ := s.stack.Frame(cur)
@@ -103,12 +100,45 @@ func (s *Session) OpenWindow(title string, dir Direction, pane PaneID) (Window, 
 			frame = Rect{X: f.X + 2, Y: f.Y + 1, W: f.W, H: f.H}
 		}
 	}
+	return s.add(title, pane, frame), nil
+}
 
+// OpenAt adds a window showing pane at frame, kept on screen, and focuses
+// it. A window already drawn in exactly that spot pushes the new one down
+// and to the right, so none hides another.
+func (s *Session) OpenAt(title string, pane PaneID, frame Rect) (Window, error) {
+	if _, taken := s.panes[pane]; taken {
+		return Window{}, fmt.Errorf("open window: pane %d is already shown", pane)
+	}
+	frame = fit(frame, s.area)
+	for range s.stack.Len() {
+		if !s.occupied(frame) {
+			break
+		}
+		frame = fit(Rect{X: frame.X + 2, Y: frame.Y + 1, W: frame.W, H: frame.H}, s.area)
+	}
+	return s.add(title, pane, frame), nil
+}
+
+// add puts a new window showing pane at frame, on top and focused.
+func (s *Session) add(title string, pane PaneID, frame Rect) Window {
+	s.lastWindow++
+	w := &Window{ID: s.lastWindow, Pane: pane, Title: title}
 	s.windows[w.ID] = w
 	s.panes[w.Pane] = w.ID
 	s.stack.Add(w.ID, fit(frame, s.area))
 	s.touch(w.ID)
-	return *w, nil
+	return *w
+}
+
+// occupied reports whether some window is drawn exactly at frame.
+func (s *Session) occupied(frame Rect) bool {
+	for _, p := range s.placements() {
+		if p.Frame == frame {
+			return true
+		}
+	}
+	return false
 }
 
 // CloseWindow removes a window. A neighbor that lines up with it exactly

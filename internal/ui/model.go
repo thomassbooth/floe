@@ -153,6 +153,16 @@ func (m *Model) handleKey(k domain.Key) {
 
 func (m *Model) runAction(a input.Action) {
 	switch a {
+	case input.ActionNewWindow:
+		// Half the whole terminal, centered in it. The session only knows
+		// the area above the status bar, so the client works this out.
+		w, h := m.width/2, m.height/2
+		m.backend.Apply(domain.NewWindow{Frame: domain.Rect{
+			X: (m.width - w) / 2,
+			Y: (m.height - h) / 2,
+			W: w,
+			H: h,
+		}})
 	case input.ActionSessionSwitcher:
 		m.switcher = newSwitcher(m.sessions)
 	case input.ActionRenameSession:

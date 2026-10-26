@@ -24,6 +24,9 @@ type Action int
 
 const (
 	ActionNone Action = iota
+	// ActionNewWindow opens a window in the middle of the terminal, half its
+	// width and height.
+	ActionNewWindow
 	// ActionSessionSwitcher opens the list of sessions.
 	ActionSessionSwitcher
 	// ActionRenameSession asks for a new name for the current session.

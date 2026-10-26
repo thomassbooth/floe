@@ -92,6 +92,13 @@ func TestRepeatModeHandsPrefixBackToNormal(t *testing.T) {
 	})
 }
 
+func TestNewWindowBinding(t *testing.T) {
+	run(t, []step{
+		{prefix, nil, Prefix},
+		{char('c'), ActionNewWindow, Normal},
+	})
+}
+
 func TestSessionBindings(t *testing.T) {
 	run(t, []step{
 		{prefix, nil, Prefix},
