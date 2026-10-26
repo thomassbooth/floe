@@ -159,23 +159,16 @@ func (m Model) statusBar(width int) string {
 	t := m.theme
 	bar := lipgloss.NewStyle().Background(t.BarBg).Foreground(t.BarFg)
 	dim := bar.Foreground(t.BarDim)
-	badge := lipgloss.NewStyle().Background(t.Accent).Foreground(t.BadgeFg).Bold(true).Padding(0, 1)
+	badge := m.badgeStyle()
 
-	name := m.snap.Name
-	if name == "" {
-		name = "mux"
-	}
 	var left strings.Builder
-	left.WriteString(badge.Render(name))
+	left.WriteString(badge.Render(m.sessionLabel()))
 	left.WriteString(bar.Render(" "))
-	windows := slices.Clone(m.snap.Windows)
-	slices.SortFunc(windows, func(a, b domain.WindowView) int { return cmp.Compare(a.ID, b.ID) })
-	for _, w := range windows {
-		tab := fmt.Sprintf(" %d %s ", w.ID, w.Title)
-		if w.Focused {
-			left.WriteString(bar.Background(t.ActiveTabBg).Bold(true).Render(tab))
+	for _, tab := range m.statusTabs() {
+		if tab.window.Focused {
+			left.WriteString(bar.Background(t.ActiveTabBg).Bold(true).Render(tab.label))
 		} else {
-			left.WriteString(dim.Render(tab))
+			left.WriteString(dim.Render(tab.label))
 		}
 	}
 
@@ -199,6 +192,43 @@ func (m Model) statusBar(width int) string {
 	}
 	gap := max(width-lipgloss.Width(l)-lipgloss.Width(right), 0)
 	return ansi.Truncate(l+bar.Render(strings.Repeat(" ", gap))+right, width, "")
+}
+
+// statusTab is a window's tab in the status bar, covering columns
+// [x0, x1).
+type statusTab struct {
+	window domain.WindowView
+	label  string
+	x0, x1 int
+}
+
+// statusTabs lays out the window tabs that follow the session badge, in
+// window order. Drawing and mouse clicks both use it, so a click always
+// lands on the tab drawn there.
+func (m Model) statusTabs() []statusTab {
+	windows := slices.Clone(m.snap.Windows)
+	slices.SortFunc(windows, func(a, b domain.WindowView) int { return cmp.Compare(a.ID, b.ID) })
+
+	x := lipgloss.Width(m.badgeStyle().Render(m.sessionLabel())) + 1
+	tabs := make([]statusTab, len(windows))
+	for i, w := range windows {
+		label := fmt.Sprintf(" %d %s ", w.ID, w.Title)
+		width := lipgloss.Width(label)
+		tabs[i] = statusTab{window: w, label: label, x0: x, x1: x + width}
+		x += width
+	}
+	return tabs
+}
+
+func (m Model) sessionLabel() string {
+	if m.snap.Name == "" {
+		return "mux"
+	}
+	return m.snap.Name
+}
+
+func (m Model) badgeStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Background(m.theme.Accent).Foreground(m.theme.BadgeFg).Bold(true).Padding(0, 1)
 }
 
 // promptBar draws the open prompt in place of the status bar and returns

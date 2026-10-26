@@ -102,6 +102,10 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	if mouse.Button != tea.MouseLeft {
 		return
 	}
+	if mouse.Y == m.height-statusBarHeight {
+		m.statusBarClick(mouse.X)
+		return
+	}
 	t, ok := m.targetAt(mouse.X, mouse.Y)
 	if !ok {
 		return
@@ -125,6 +129,20 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 		}
 	case partEdge:
 		m.drag = &drag{window: id, edges: t.edges}
+	}
+}
+
+// statusBarClick focuses the window whose tab is at column x.
+func (m *Model) statusBarClick(x int) {
+	if m.prompt != nil {
+		return // the prompt replaces the tabs
+	}
+	for _, tab := range m.statusTabs() {
+		if x >= tab.x0 && x < tab.x1 && x < m.width {
+			m.keys.Reset()
+			m.backend.Apply(domain.FocusWindow{ID: tab.window.ID})
+			return
+		}
 	}
 }
 

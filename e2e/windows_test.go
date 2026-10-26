@@ -170,3 +170,41 @@ func TestNewWindowOpensCenteredAtHalfTheTerminal(t *testing.T) {
 	tm.waitFor(" 3 sh ")
 	tm.waitCell(27, 8, "╭")
 }
+
+func TestClickingStatusBarTabFocusesWindow(t *testing.T) {
+	tm := launch(t, 100, 30)
+	tm.waitFor(" 1 sh ")
+	tm.waitPrompts(1)
+	tm.prefix("|")
+	tm.waitFor(" 2 sh ")
+	tm.waitPrompts(2)
+	tm.prefix("-")
+	tm.waitFor(" 3 sh ")
+	tm.waitPrompts(3)
+	// Window 1 is the left half; window 3, bottom right, has focus.
+
+	bar := tm.lines()[29]
+	tab := column(bar, "1 sh")
+	if tab < 0 {
+		t.Fatalf("no tab for window 1 in %q", bar)
+	}
+	tm.click(tab, 29)
+	tm.typeLine("echo via-tab")
+	tm.waitFor("via-tab")
+	for _, l := range tm.lines() {
+		if i := column(l, "via-tab"); i > 50 {
+			t.Fatalf("typing went to the wrong window: %q", l)
+		}
+	}
+
+	// Clicking the gap after the tabs changes nothing.
+	tm.click(60, 29)
+	tm.click(column(tm.lines()[29], "2 sh"), 29)
+	tm.typeLine("echo second-tab")
+	tm.waitFor("second-tab")
+	for i, l := range tm.lines() {
+		if c := column(l, "second-tab"); c >= 0 && (c < 50 || i > 14) {
+			t.Fatalf("typing should land in window 2 (top right): row %d %q", i, l)
+		}
+	}
+}
