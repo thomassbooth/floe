@@ -24,6 +24,8 @@ release:
   github:
     owner: thomassbooth
     name: floe
+  # Lets a failed release be re-run once its cause is fixed.
+  replace_existing_artifacts: true
 
 checksum:
   name_template: checksums.txt
