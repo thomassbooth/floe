@@ -18,10 +18,10 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Format
-        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+        run: make fmt-check
       - name: Vet
-        run: go vet ./...
+        run: make vet
       - name: Unit tests
-        run: go test -race ./internal/...
+        run: make unit
       - name: End-to-end tests
-        run: go test ./e2e/...
+        run: make e2e

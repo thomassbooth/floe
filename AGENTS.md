@@ -7,17 +7,16 @@ free-floating windows. Read [README.md](README.md) for what it does and
 ## Commands
 
 ```sh
-go build -o floe ./cmd/floe   # build the binary (gitignored)
-go test ./...                 # unit, architecture and end-to-end tests
-go test -short ./...          # skip the slower end-to-end tests
-go test -race ./internal/...  # unit tests as CI runs them
-go test ./e2e/...             # end-to-end tests as CI runs them
-gofmt -l .                    # must print nothing
-go vet ./...
+make build        # build ./floe (gitignored)
+make test         # unit, architecture and end-to-end tests
+make test-short   # skip the slower end-to-end tests
+make check        # everything CI runs: gofmt, vet, unit tests with -race, e2e
+make help         # every target
 ```
 
-CI runs format, vet, unit tests with `-race` and the end-to-end tests on both
-macOS and Linux. Run all of them before calling a change done.
+CI runs `make check`'s steps on both macOS and Linux, so run it before
+calling a change done. `install.sh` is the one-line installer the README
+points to; run `shellcheck install.sh` after changing it.
 
 ## Layout
 
@@ -88,4 +87,4 @@ macOS and Linux. Run all of them before calling a change done.
 - Do not add an agent as co-author.
 - Releases are made by pushing a `v*` tag. GoReleaser builds the archives,
   publishes the GitHub release and updates the Homebrew tap. Try it locally
-  with `goreleaser release --snapshot --clean`.
+  with `make snapshot`.

@@ -60,9 +60,20 @@ floe runs on macOS and Linux.
 brew install thomassbooth/tap/floe
 ```
 
-**Linux:** download the package for your system from the
-[latest release](https://github.com/thomassbooth/floe/releases/latest) and
-install it. Use `amd64` for most PCs and `arm64` for ARM machines such as a
+**Linux or macOS, with one command:**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/thomassbooth/floe/main/install.sh | sh
+```
+
+It downloads the latest release for your system, checks it against the
+release's checksums and installs it to `/usr/local/bin`, or `~/.local/bin`
+without sudo. Set `FLOE_VERSION=v0.2.0` for a particular release or
+`FLOE_INSTALL_DIR` for somewhere else. Run it again to upgrade.
+
+**Linux, with your package manager:** download the package for your system
+from the [latest release](https://github.com/thomassbooth/floe/releases/latest)
+and install it. Use `amd64` for most PCs and `arm64` for ARM machines such as a
 Raspberry Pi.
 
 ```sh
@@ -71,15 +82,21 @@ sudo dnf install ./floe_<version>_amd64.rpm              # Fedora, RHEL
 sudo apk add --allow-untrusted floe_<version>_amd64.apk  # Alpine
 ```
 
-**Anywhere else:** download the archive for your system from the latest
-release, unpack it and put `floe` somewhere on your `PATH`.
+**By hand:** download the archive for your system from the latest release,
+unpack it and put `floe` somewhere on your `PATH`.
 
-**From source,** with Go 1.26 or newer:
+**With Go** 1.26 or newer:
+
+```sh
+go install github.com/thomassbooth/floe/cmd/floe@latest
+```
+
+**From source:**
 
 ```sh
 git clone https://github.com/thomassbooth/floe.git
 cd floe
-go build -o floe ./cmd/floe
+make && sudo make install   # or: make install PREFIX=~/.local
 ```
 
 For the best results use a terminal with true color and mouse support, such
@@ -177,8 +194,10 @@ but programs that were running in them do not.
 ## Development
 
 ```sh
-go test ./...          # unit, architecture and end-to-end tests
-go test -short ./...   # skip the slower end-to-end tests
+make test         # unit, architecture and end-to-end tests
+make test-short   # skip the slower end-to-end tests
+make check        # everything CI runs
+make help         # every target
 ```
 
 CI runs every test on macOS and Linux. To release, push a tag such as
