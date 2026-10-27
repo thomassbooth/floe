@@ -39,18 +39,6 @@ func loadKeymap() (input.Keymap, []error) {
 	return km, errs
 }
 
-// keymapNotice sums up keymap problems for the status bar, which has room
-// for one line.
-func keymapNotice(errs []error) string {
-	switch len(errs) {
-	case 0:
-		return ""
-	case 1:
-		return errs[0].Error() + " · using the default keys"
-	}
-	return fmt.Sprintf("%s · %d more in floe keys · using the default keys", errs[0], len(errs)-1)
-}
-
 // listKeys prints every binding with its name and keys, as floe keys. It
 // fails if keybinds.conf has problems, after listing them.
 func listKeys(w io.Writer) error {

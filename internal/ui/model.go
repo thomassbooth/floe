@@ -41,6 +41,10 @@ type Model struct {
 	keys    *input.Machine
 	prefs   Preferences
 	theme   theme.Theme
+	// animate moves windows smoothly into a new layout, and anim is the
+	// move under way, if any.
+	animate bool
+	anim    *animation
 	// themeChosen is set once a theme was picked, now or in an earlier run,
 	// so the terminal's background no longer decides it.
 	themeChosen bool
@@ -78,15 +82,28 @@ type Model struct {
 	DetachedFrom string
 }
 
-// New returns a model that drives backend with the given keymap. The theme
-// comes from prefs when one was saved; prefs may be nil. A notice, such as a
-// problem with the config, shows in the status bar until the first key.
-func New(backend Backend, km input.Keymap, prefs Preferences, notice string) Model {
+// Options are the client's choices, from the config files.
+type Options struct {
+	Keymap input.Keymap
+	// Prefs keeps the theme; nil remembers nothing.
+	Prefs Preferences
+	// Animations moves windows smoothly when the layout changes.
+	Animations bool
+	// Notice, such as a problem with the config, shows in the status bar
+	// until the first key.
+	Notice string
+}
+
+// New returns a model that drives backend. The theme comes from the
+// preferences when one was saved.
+func New(backend Backend, o Options) Model {
+	prefs := o.Prefs
 	m := Model{
 		backend: backend,
-		keys:    input.NewMachine(km),
+		keys:    input.NewMachine(o.Keymap),
 		prefs:   prefs,
-		notice:  notice,
+		animate: o.Animations,
+		notice:  o.Notice,
 		theme:   theme.MustLookup(theme.Default),
 		scroll:  make(map[domain.PaneID]int),
 		seen:    make(map[domain.PaneID]int),
@@ -151,8 +168,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case eventMsg:
 		switch ev := msg.event.(type) {
 		case domain.LayoutChanged:
-			m.snap = ev.Snapshot
+			anim := m.setLayout(ev.Snapshot)
 			m.dropStaleSelection()
+			return m, tea.Batch(m.waitEvent, anim)
 		case domain.SessionsChanged:
 			m.sessions = ev
 		case domain.ClipboardSet:
@@ -176,6 +194,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case rearmChangedMsg:
 		return m, m.waitChanged
+
+	case animTickMsg:
+		return m, m.stepAnimation(msg.at)
 	}
 	return m, nil
 }

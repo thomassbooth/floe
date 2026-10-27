@@ -80,6 +80,9 @@ type options struct {
 	// background, when set, is the outer terminal's background color, as
 	// reported to floe when it asks.
 	background color.Color
+	// animate leaves floe.conf to the test. Otherwise animations are
+	// turned off, so checks of a layout never see windows on the way to it.
+	animate bool
 }
 
 func launchWith(t *testing.T, o options) *term {
@@ -99,6 +102,9 @@ func launchWith(t *testing.T, o options) *term {
 	}
 	if testing.Short() {
 		t.Skip("e2e tests are slow")
+	}
+	if !o.animate {
+		writeConfig(t, o.config, "animations off\n")
 	}
 	// Describe the outer terminal as what the tests emulate, a true color
 	// xterm, whatever terminal the tests themselves run in. The tests may

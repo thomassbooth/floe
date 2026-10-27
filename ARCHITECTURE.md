@@ -16,7 +16,7 @@ flowchart LR
         ui["<b>ui</b><br/>Bubble Tea: draws windows,<br/>status bar, overlays"]
         input["<b>input</b><br/>prefix key, arrange mode,<br/>your own keys"]
         theme["<b>theme</b><br/>colors"]
-        settings[("<b>settings</b><br/>settings.json,<br/>keybinds.conf")]
+        settings[("<b>settings</b><br/>settings.json,<br/>floe.conf, keybinds.conf")]
         rclient["<b>remote.Client</b><br/>stands in for the service"]
         ui --> input
         ui --> theme

@@ -10,13 +10,16 @@ your programs: run `floe` again and everything is where you left it.
 
 ## Features
 
-- **Free windows.** Drag a title bar to move a window, drag an edge or corner
-  to resize it. Each title bar has maximize (□) and close (×) buttons.
+- **Free windows.** In arrange mode, drag a title bar to move a window and
+  drag an edge or corner to resize it. Each title bar has maximize (□) and
+  close (×) buttons.
 - **Snapping.** Drop a window on the left or right edge to fill that half of
   the screen, or near the top or bottom of an edge for a quarter. `ctrl+b =` tidies every window
   into a layout that fills the screen.
-- **Arrange mode.** Move and resize windows from the keyboard, or by clicking
-  `arrange` in the status bar.
+- **Arrange mode.** Move and resize windows from the keyboard or the mouse.
+  Turn it on with `ctrl+b a` or by clicking `arrange` in the status bar.
+- **Smooth.** Windows glide into place when you split, tidy, snap, maximize
+  or open them. Turn it off in `floe.conf`.
 - **Sessions that survive.** Detach with `ctrl+b d` or just close the
   terminal; programs keep running in the background server. Layouts and
   working directories are also saved to disk, so they come back after a
@@ -184,12 +187,29 @@ floe reads the file each time you run `floe`, so detach and run it again
 after a change. If a line is wrong, floe says which in the status bar and
 uses the default keys until it is fixed.
 
+### Settings
+
+Other settings go in `~/.config/floe/floe.conf`, one per line, in the same
+style as `keybinds.conf`:
+
+```sh
+# Windows jump into place instead of gliding.
+animations off
+```
+
+| Setting | Values | Default |
+|---|---|---|
+| `animations` | `on` or `off` | `on`, or `off` over SSH where frames can arrive late |
+
+floe reads it each time you run `floe`. If a line is wrong, floe says which
+in the status bar and uses the defaults until it is fixed.
+
 ### Mouse
 
 | Do this | To |
 |---|---|
-| Drag a title bar | Move the window |
-| Drag an edge or corner | Resize the window |
+| Drag a title bar, in arrange mode | Move the window |
+| Drag an edge or corner, in arrange mode | Resize the window |
 | Drop a window on the left or right edge | Snap it to that half, or a quarter near the top or bottom |
 | Click □ / × in a title bar | Maximize / close the window |
 | Click a tab in the status bar | Focus that window |
@@ -205,6 +225,7 @@ uses the default keys until it is fixed.
 |---|---|
 | `~/.config/floe/settings.json` | Your chosen theme |
 | `~/.config/floe/keybinds.conf` | Your own keys, if you write one |
+| `~/.config/floe/floe.conf` | Other settings, such as animations |
 | `~/.local/state/floe/sessions.json` | Saved sessions, for after a restart |
 | `~/.local/state/floe/server.log` | What the server has to say |
 | `$TMPDIR/floe-<uid>/` | The server's socket, private to you |

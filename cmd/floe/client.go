@@ -53,9 +53,9 @@ func runClient() error {
 	}
 	defer client.Close()
 
-	km, keyErrs := loadKeymap()
+	opts := clientOptions()
 	client.Apply(domain.AttachSession{})
-	program := tea.NewProgram(ui.New(client, km, openPreferences(), keymapNotice(keyErrs)))
+	program := tea.NewProgram(ui.New(client, opts))
 
 	// Closing the terminal sends SIGHUP. The server keeps everything
 	// running; just stop showing it.

@@ -24,6 +24,7 @@ func (m Model) render() (string, *tea.Cursor) {
 
 	var cursor *tea.Cursor
 	for _, w := range m.snap.Windows {
+		w = m.drawnView(w)
 		m.drawFrame(canvas, w)
 		grid, ok := m.backend.Grid(w.Pane, m.scroll[w.Pane])
 		if !ok {
@@ -35,6 +36,9 @@ func (m Model) render() (string, *tea.Cursor) {
 		if w.Focused {
 			cursor = gridCursor(w.Content, grid)
 		}
+	}
+	if m.anim != nil {
+		cursor = nil // it would jump around with the window
 	}
 
 	if m.arranging() {
