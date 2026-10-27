@@ -467,3 +467,104 @@ func TestKeyString(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionMinimizeHidesWindowAndMovesFocus(t *testing.T) {
+	s := newSession(t, Right, Down) // 1 left, 2 top right, 3 bottom right, focused
+	before := s.Snapshot()
+
+	if !s.Minimize(3) || s.Minimize(3) || s.Minimize(99) {
+		t.Fatal("a shown window minimizes once; unknown ones are ignored")
+	}
+	if got := focusedID(t, s); got != 2 {
+		t.Fatalf("focus went to %d, want the last focused window 2", got)
+	}
+	snap := s.Snapshot()
+	if w := snap.Windows[0]; w.ID != 3 || !w.Minimized || w.Focused {
+		t.Fatalf("minimized windows come first, unfocused: %+v", w)
+	}
+	if w := snap.Windows[0]; w.Frame != before.Windows[2].Frame {
+		t.Fatalf("a minimized window keeps its frame: %+v", w)
+	}
+	if _, ok := snap.WindowAt(70, 20); ok {
+		t.Fatal("a minimized window is not under the mouse")
+	}
+
+	// Focus, cycling and tidying pass it by.
+	if s.FocusDirection(Down) {
+		t.Fatal("there is nothing shown below window 2")
+	}
+	s.CycleFocus(1)
+	s.CycleFocus(1)
+	if got := focusedID(t, s); got != 2 {
+		t.Fatalf("cycling should skip window 3, focused %d", got)
+	}
+	s.Tidy()
+	for _, w := range s.Snapshot().Windows {
+		if w.ID != 3 && w.Frame.H != screen.H {
+			t.Fatalf("two shown windows tidy into halves: %+v", w)
+		}
+	}
+
+	// Focusing it shows it again, on top.
+	if !s.Focus(3) {
+		t.Fatal("focusing a minimized window changes it")
+	}
+	snap = s.Snapshot()
+	if w := snap.Windows[len(snap.Windows)-1]; w.ID != 3 || w.Minimized || !w.Focused {
+		t.Fatalf("window 3 should be back on top: %+v", w)
+	}
+}
+
+func TestSessionRestoreMinimizedBringsBackTheLatest(t *testing.T) {
+	s := newSession(t, Right, Right)
+	s.Minimize(1)
+	s.Minimize(3)
+	s.Minimize(2)
+	if _, ok := s.Focused(); ok {
+		t.Fatal("with every window minimized, none has focus")
+	}
+	for _, want := range []WindowID{2, 3, 1} {
+		if !s.RestoreMinimized() || focusedID(t, s) != want {
+			t.Fatalf("expected window %d back", want)
+		}
+	}
+	if s.RestoreMinimized() {
+		t.Fatal("nothing is left to restore")
+	}
+}
+
+func TestSessionClosingAMinimizedWindowLeavesTheLayout(t *testing.T) {
+	s := newSession(t, Right) // 1 left half, 2 right half
+	s.Minimize(2)
+	if err := s.CloseWindow(2); err != nil {
+		t.Fatal(err)
+	}
+	if w := s.Snapshot().Windows[0]; w.Frame.W != screen.W/2 {
+		t.Fatalf("window 1 should keep its half, not take hidden space: %+v", w)
+	}
+	if s.RestoreMinimized() {
+		t.Fatal("a closed window cannot be restored")
+	}
+}
+
+func TestServerSavesMinimizedWindows(t *testing.T) {
+	srv := NewServer()
+	s := mustCreate(t, srv, "work")
+	s.SetArea(screen)
+	s.OpenWindow("sh", Right, srv.NewPaneID())
+	s.OpenWindow("sh", Right, srv.NewPaneID())
+	s.Minimize(2)
+
+	fresh := NewServer()
+	got, err := fresh.RestoreSession(srv.Save()[0], "sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := got.Snapshot()
+	if w := snap.Windows[0]; w.ID != 2 || !w.Minimized {
+		t.Fatalf("window 2 should come back minimized: %+v", snap.Windows)
+	}
+	if snap.Focused != 1 {
+		t.Fatalf("focused = %d, want 1", snap.Focused)
+	}
+}

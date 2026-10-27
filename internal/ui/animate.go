@@ -89,12 +89,19 @@ func (m *Model) setLayout(next domain.Snapshot) tea.Cmd {
 	// A change that only redraws, such as a new title, or only nudges a
 	// window, leaves a running animation alone: restarting it would hold
 	// windows back each time a busy program updates its title.
+	// Minimized windows are left out, so one coming back grows into place
+	// like a new window.
 	targets := make(map[domain.WindowID]domain.Rect, len(prev.Windows))
 	for _, w := range prev.Windows {
-		targets[w.ID] = w.Frame
+		if !w.Minimized {
+			targets[w.ID] = w.Frame
+		}
 	}
 	moved := false
 	for _, w := range next.Windows {
+		if w.Minimized {
+			continue
+		}
 		if t, ok := targets[w.ID]; !ok || farApart(t, w.Frame) {
 			moved = true
 			break
@@ -108,7 +115,9 @@ func (m *Model) setLayout(next domain.Snapshot) tea.Cmd {
 	// an animation is already running.
 	from := make(map[domain.WindowID]domain.Rect, len(next.Windows))
 	for _, w := range prev.Windows {
-		from[w.ID] = m.drawnFrame(w)
+		if !w.Minimized {
+			from[w.ID] = m.drawnFrame(w)
+		}
 	}
 	for _, w := range next.Windows {
 		if _, ok := from[w.ID]; !ok {

@@ -54,11 +54,12 @@ type (
 		Windows []fileWindow `json:"windows"`
 	}
 	fileWindow struct {
-		ID      int       `json:"id"`
-		Frame   fileRect  `json:"frame"`
-		Restore *fileRect `json:"restore,omitempty"`
-		Focused bool      `json:"focused,omitempty"`
-		Dir     string    `json:"dir,omitempty"`
+		ID        int       `json:"id"`
+		Frame     fileRect  `json:"frame"`
+		Restore   *fileRect `json:"restore,omitempty"`
+		Focused   bool      `json:"focused,omitempty"`
+		Minimized bool      `json:"minimized,omitempty"`
+		Dir       string    `json:"dir,omitempty"`
 	}
 	fileRect struct {
 		X, Y, W, H int
@@ -86,10 +87,11 @@ func (f *File) Load() ([]domain.SavedSession, error) {
 		out[i] = domain.SavedSession{Name: s.Name, Area: s.Area.domain()}
 		for _, w := range s.Windows {
 			sw := domain.SavedWindow{
-				ID:      domain.WindowID(w.ID),
-				Frame:   w.Frame.domain(),
-				Focused: w.Focused,
-				Dir:     w.Dir,
+				ID:        domain.WindowID(w.ID),
+				Frame:     w.Frame.domain(),
+				Focused:   w.Focused,
+				Minimized: w.Minimized,
+				Dir:       w.Dir,
 			}
 			if w.Restore != nil {
 				sw.Restore = w.Restore.domain()
@@ -107,10 +109,11 @@ func (f *File) Save(sessions []domain.SavedSession) error {
 		d.Sessions[i] = fileSession{Name: s.Name, Area: toFileRect(s.Area), Windows: []fileWindow{}}
 		for _, w := range s.Windows {
 			fw := fileWindow{
-				ID:      int(w.ID),
-				Frame:   toFileRect(w.Frame),
-				Focused: w.Focused,
-				Dir:     w.Dir,
+				ID:        int(w.ID),
+				Frame:     toFileRect(w.Frame),
+				Focused:   w.Focused,
+				Minimized: w.Minimized,
+				Dir:       w.Dir,
 			}
 			if !w.Restore.Empty() {
 				r := toFileRect(w.Restore)

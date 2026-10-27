@@ -212,6 +212,14 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		if s.layout.toggleMaximize(sess, c.ID) {
 			s.markDirty(sess.ID())
 		}
+	case domain.MinimizeWindow:
+		if s.layout.minimize(sess, c.ID) {
+			s.markDirty(sess.ID())
+		}
+	case domain.RestoreMinimized:
+		if s.layout.restoreMinimized(sess) {
+			s.markDirty(sess.ID())
+		}
 	case domain.SendKey:
 		return s.input.sendKey(sess, c.Window, c.Key)
 	case domain.SendMouse:
@@ -260,6 +268,7 @@ func (s *Service) refreshArea(id domain.SessionID) {
 }
 
 func (s *Service) paneExited(id domain.PaneID) {
+	s.activity.forget(id)
 	sess, closed := s.windows.paneExited(id)
 	if !closed {
 		return
@@ -268,7 +277,6 @@ func (s *Service) paneExited(id domain.PaneID) {
 	if sess.Len() == 0 {
 		s.removeSession(sess, nil)
 	}
-	s.activity.forget(id)
 }
 
 // removeSession deletes a session and moves its clients to the most

@@ -18,6 +18,7 @@ const (
 	partContent part = iota
 	partTitle
 	partEdge
+	partMinimize
 	partMaximize
 	partClose
 )
@@ -57,16 +58,22 @@ type drag struct {
 }
 
 // minButtonsWidth is the narrowest frame that shows title bar buttons.
-const minButtonsWidth = 14
+const minButtonsWidth = 16
 
-// buttons returns the columns of a frame's maximize and close buttons, which
-// sit at the right of its top border as " □ × ─╮".
-func buttons(f domain.Rect) (maxCol, closeCol int, ok bool) {
+// titleButtons are the columns of a frame's minimize, maximize and close
+// buttons, which sit at the right of its top border as " _ □ × ─╮".
+type titleButtons struct {
+	minimize, maximize, close int
+}
+
+// buttons returns where a frame's title bar buttons are, if it is wide
+// enough to show them.
+func buttons(f domain.Rect) (titleButtons, bool) {
 	if f.W < minButtonsWidth {
-		return 0, 0, false
+		return titleButtons{}, false
 	}
 	corner := f.Right() - 1
-	return corner - 5, corner - 3, true
+	return titleButtons{minimize: corner - 7, maximize: corner - 5, close: corner - 3}, true
 }
 
 // targetAt finds what is under the cell x, y. The top corners resize, the
@@ -81,12 +88,14 @@ func (m Model) targetAt(x, y int) (target, bool) {
 	top, bottom := y == f.Y, y == f.Bottom()-1
 
 	if top {
-		if maxCol, closeCol, ok := buttons(f); ok {
+		if b, ok := buttons(f); ok {
 			switch {
-			case x >= closeCol-1 && x <= closeCol+1:
+			case x >= b.close-1 && x <= b.close+1:
 				return target{window: w, part: partClose}, true
-			case x >= maxCol-1 && x <= maxCol:
+			case x >= b.maximize-1 && x <= b.maximize:
 				return target{window: w, part: partMaximize}, true
+			case x >= b.minimize-1 && x <= b.minimize:
+				return target{window: w, part: partMinimize}, true
 			}
 		}
 	}
@@ -158,6 +167,8 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 		m.backend.Apply(domain.CloseWindow{ID: id})
 	case partMaximize:
 		m.backend.Apply(domain.ToggleMaximize{ID: id})
+	case partMinimize:
+		m.backend.Apply(domain.MinimizeWindow{ID: id})
 	case partTitle:
 		if m.arranging() {
 			m.drag = m.moveDrag(t.window, mouse.X, mouse.Y)

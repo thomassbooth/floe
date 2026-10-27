@@ -32,6 +32,8 @@ func DefaultKeymap() Keymap {
 			{Name: "tidy", Keys: []domain.Key{char('=')}, Command: domain.Tidy{}, Group: "Windows", Help: "tidy"},
 			{Name: "arrange", Keys: []domain.Key{char('a')}, Action: ActionArrange, Group: "Windows", Help: "arrange"},
 			{Name: "maximize", Keys: []domain.Key{char('z')}, Command: domain.ToggleMaximize{}, Group: "Windows", Help: "maximize"},
+			{Name: "minimize", Keys: []domain.Key{char('m')}, Command: domain.MinimizeWindow{}, Group: "Windows", Help: "minimize"},
+			{Name: "restore", Keys: []domain.Key{char('M')}, Command: domain.RestoreMinimized{}, Group: "Windows", Help: "restore"},
 			{Name: "close", Keys: []domain.Key{char('x')}, Command: domain.CloseWindow{}, Group: "Windows", Help: "close"},
 			{Name: "focus-next", Command: domain.CycleFocus{Delta: 1}, Group: "Windows", Help: "next window"},
 			{Name: "focus-prev", Command: domain.CycleFocus{Delta: -1}, Group: "Windows", Help: "previous window"},
@@ -77,6 +79,8 @@ func arrangeBindings() []Binding {
 
 		{Name: "tidy", Keys: []domain.Key{char('=')}, Command: domain.Tidy{}, Help: "tidy"},
 		{Name: "maximize", Keys: []domain.Key{char('z')}, Command: domain.ToggleMaximize{}, Help: "maximize"},
+		{Name: "minimize", Keys: []domain.Key{char('m')}, Command: domain.MinimizeWindow{}, Help: "minimize"},
+		{Name: "restore", Keys: []domain.Key{char('M')}, Command: domain.RestoreMinimized{}, Help: "restore"},
 		{Name: "new-window", Keys: []domain.Key{char('c')}, Action: ActionNewWindow, Help: "new window"},
 		{Name: "split-right", Keys: []domain.Key{char('|')}, Command: domain.SplitWindow{Dir: domain.Right}, Help: "split right"},
 		{Name: "split-down", Keys: []domain.Key{char('-')}, Command: domain.SplitWindow{Dir: domain.Down}, Help: "split down"},

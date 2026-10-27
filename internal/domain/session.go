@@ -2,7 +2,6 @@ package domain
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 )
 
@@ -25,7 +24,8 @@ type Window struct {
 
 // Session is a named set of windows, where they are, and which one has
 // focus. Windows move and resize freely and may overlap; the focused window
-// is always on top. A session holds no processes: the service starts and
+// is always on top. A minimized window keeps its frame and its program but
+// is not drawn, and focus, tidying and splitting pass it by. A session holds no processes: the service starts and
 // stops panes to match.
 type Session struct {
 	id      SessionID
@@ -40,6 +40,8 @@ type Session struct {
 	// history lists windows from least to most recently focused. The last
 	// entry has focus.
 	history []WindowID
+	// minimized lists minimized windows, the most recently minimized last.
+	minimized []WindowID
 
 	lastWindow WindowID
 }
@@ -161,6 +163,10 @@ func (s *Session) CloseWindow(id WindowID) error {
 	delete(s.panes, w.Pane)
 	delete(s.restore, id)
 	s.history = slices.DeleteFunc(s.history, func(h WindowID) bool { return h == id })
+	if s.isMinimized(id) {
+		s.minimized = slices.DeleteFunc(s.minimized, func(m WindowID) bool { return m == id })
+		return nil // it gave up no space on screen
+	}
 	s.absorb(gone)
 	if cur, ok := s.focused(); ok {
 		s.stack.Raise(cur)
@@ -204,7 +210,7 @@ func (s *Session) coveringSide(gone Rect, side Direction) ([]WindowID, bool) {
 		start, end int
 	}
 	var spans []span
-	for _, id := range s.stack.IDs() {
+	for _, id := range s.visible() {
 		f, _ := s.stack.Frame(id)
 		var touches bool
 		var sp span
@@ -270,13 +276,15 @@ func (s *Session) Focused() (Window, bool) {
 	return *s.windows[id], true
 }
 
-// Focus gives a window focus and brings it to the front. It reports whether
-// anything changed.
+// Focus gives a window focus and brings it to the front, restoring it if it
+// was minimized. It reports whether anything changed.
 func (s *Session) Focus(id WindowID) bool {
 	if _, ok := s.windows[id]; !ok {
 		return false
 	}
-	raised := s.stack.Raise(id)
+	restored := s.isMinimized(id)
+	s.minimized = slices.DeleteFunc(s.minimized, func(m WindowID) bool { return m == id })
+	raised := s.stack.Raise(id) || restored
 	w := s.windows[id]
 	cleared := w.Bell
 	w.Bell = false
@@ -285,6 +293,29 @@ func (s *Session) Focus(id WindowID) bool {
 	}
 	s.touch(id)
 	return true
+}
+
+// Minimize hides a window, leaving its program running. Focus goes to the
+// most recently focused window still shown. It reports whether the window
+// changed.
+func (s *Session) Minimize(id WindowID) bool {
+	if _, ok := s.windows[id]; !ok || s.isMinimized(id) {
+		return false
+	}
+	s.minimized = append(s.minimized, id)
+	if cur, ok := s.focused(); ok {
+		s.stack.Raise(cur)
+	}
+	return true
+}
+
+// RestoreMinimized shows and focuses the most recently minimized window. It
+// reports whether there was one.
+func (s *Session) RestoreMinimized() bool {
+	if len(s.minimized) == 0 {
+		return false
+	}
+	return s.Focus(s.minimized[len(s.minimized)-1])
 }
 
 // SetBusy marks whether a pane's program is busy printing. It reports
@@ -374,7 +405,7 @@ func (s *Session) CycleFocus(delta int) bool {
 	if !ok {
 		return false
 	}
-	ids := slices.Sorted(maps.Keys(s.windows))
+	ids := slices.Sorted(slices.Values(s.visible()))
 	i := slices.Index(ids, cur)
 	n := len(ids)
 	return s.Focus(ids[((i+delta)%n+n)%n])
@@ -463,7 +494,7 @@ func (s *Session) Snap(id WindowID, zone Zone) bool {
 // the number of windows. Each window goes to the nearest free spot, so a
 // rough arrangement keeps its shape. It reports whether anything changed.
 func (s *Session) Tidy() bool {
-	ids := s.stack.IDs()
+	ids := s.visible()
 	spots := Tile(len(ids), s.area)
 
 	type pair struct {
@@ -513,9 +544,17 @@ func (s *Session) Snapshot() Snapshot {
 		Name:    s.name,
 		Area:    s.area,
 		Focused: focus,
-		Windows: make([]WindowView, 0, len(placements)),
+		Windows: make([]WindowView, 0, len(s.windows)),
 	}
-	for _, p := range placements {
+	// Minimized windows come first, behind every window drawn.
+	hidden := make([]Placement, 0, len(s.minimized))
+	for _, id := range s.stack.IDs() {
+		if s.isMinimized(id) {
+			f, _ := s.frame(id)
+			hidden = append(hidden, Placement{Window: id, Frame: f})
+		}
+	}
+	for _, p := range slices.Concat(hidden, placements) {
 		w := s.windows[p.Window]
 		restore, held := s.restore[w.ID]
 		if held {
@@ -531,15 +570,17 @@ func (s *Session) Snapshot() Snapshot {
 			Content:   p.Frame.Inset(FrameInset),
 			Focused:   w.ID == focus,
 			Maximized: held && p.Frame == s.area,
+			Minimized: s.isMinimized(w.ID),
 			Restore:   restore,
 		})
 	}
 	return snap
 }
 
-// placements returns every window fitted to the area, back to front.
+// placements returns every window shown, fitted to the area, back to
+// front.
 func (s *Session) placements() []Placement {
-	ids := s.stack.IDs()
+	ids := s.visible()
 	out := make([]Placement, len(ids))
 	for i, id := range ids {
 		f, _ := s.frame(id)
@@ -558,11 +599,23 @@ func (s *Session) frame(id WindowID) (Rect, bool) {
 	return fit(f, s.area), true
 }
 
+// focused returns the most recently focused window still shown.
 func (s *Session) focused() (WindowID, bool) {
-	if len(s.history) == 0 {
-		return 0, false
+	for i := len(s.history) - 1; i >= 0; i-- {
+		if id := s.history[i]; !s.isMinimized(id) {
+			return id, true
+		}
 	}
-	return s.history[len(s.history)-1], true
+	return 0, false
+}
+
+// visible returns the windows that are not minimized, back to front.
+func (s *Session) visible() []WindowID {
+	return slices.DeleteFunc(s.stack.IDs(), s.isMinimized)
+}
+
+func (s *Session) isMinimized(id WindowID) bool {
+	return slices.Contains(s.minimized, id)
 }
 
 // touch marks id as the most recently focused window.

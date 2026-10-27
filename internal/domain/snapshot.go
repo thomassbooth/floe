@@ -6,7 +6,8 @@ type Snapshot struct {
 	Session SessionID
 	Name    string
 	Area    Rect
-	// Windows are in draw order, back to front.
+	// Windows are in draw order, back to front. Minimized windows come
+	// first and are not drawn.
 	Windows []WindowView
 	// Focused is zero when the session has no windows.
 	Focused WindowID
@@ -26,6 +27,8 @@ type WindowView struct {
 	// Maximized is set while the window fills the screen and remembers
 	// where to go back to.
 	Maximized bool
+	// Minimized is set for a window that is hidden until it is focused.
+	Minimized bool
 	// Restore is where a maximized or snapped window goes back to when
 	// restored or dragged away. It is empty for a free window.
 	Restore Rect
@@ -35,7 +38,7 @@ type WindowView struct {
 // x, y.
 func (s Snapshot) WindowAt(x, y int) (WindowView, bool) {
 	for i := len(s.Windows) - 1; i >= 0; i-- {
-		if s.Windows[i].Frame.Contains(x, y) {
+		if !s.Windows[i].Minimized && s.Windows[i].Frame.Contains(x, y) {
 			return s.Windows[i], true
 		}
 	}

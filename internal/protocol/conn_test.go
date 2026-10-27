@@ -67,6 +67,8 @@ func TestEveryCommandCrosses(t *testing.T) {
 		domain.SendKey{Key: domain.Key{Code: 'é', Text: "é", Mod: domain.ModAlt}, Window: 2},
 		domain.SendMouse{Window: 1, Event: domain.MouseEvent{Action: domain.MouseWheel, Button: domain.WheelUp, X: 3, Y: 4, Mod: domain.ModShift}},
 		domain.Paste{Text: "pasted\ntext"},
+		domain.MinimizeWindow{ID: 3},
+		domain.RestoreMinimized{},
 	}
 	if len(samples) != len(commands) {
 		t.Fatalf("%d samples for %d registered commands", len(samples), len(commands))
@@ -88,7 +90,7 @@ func TestEveryEventCrosses(t *testing.T) {
 			ID: 1, Pane: 7, Title: "zsh", Busy: true, Bell: true,
 			Frame:   domain.Rect{W: 40, H: 23},
 			Content: domain.Rect{X: 1, Y: 1, W: 38, H: 21},
-			Focused: true, Maximized: true,
+			Focused: true, Maximized: true, Minimized: true,
 			Restore: domain.Rect{X: 2, Y: 2, W: 20, H: 10},
 		}},
 		Focused: 1,

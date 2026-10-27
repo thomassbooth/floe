@@ -82,6 +82,25 @@ func (l *layoutService) toggleMaximize(sess *domain.Session, id domain.WindowID)
 	return sess.ToggleMaximize(id)
 }
 
+// minimize hides a window, or the focused one when id is zero. It reports
+// whether the layout changed.
+func (l *layoutService) minimize(sess *domain.Session, id domain.WindowID) bool {
+	if id == 0 {
+		w, ok := sess.Focused()
+		if !ok {
+			return false
+		}
+		id = w.ID
+	}
+	return sess.Minimize(id)
+}
+
+// restoreMinimized shows the most recently minimized window. It reports
+// whether the layout changed.
+func (l *layoutService) restoreMinimized(sess *domain.Session) bool {
+	return sess.RestoreMinimized()
+}
+
 // snap moves a window into a zone of the screen. It reports whether the
 // layout changed.
 func (l *layoutService) snap(sess *domain.Session, id domain.WindowID, zone domain.Zone) bool {

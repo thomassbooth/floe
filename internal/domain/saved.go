@@ -22,6 +22,8 @@ type SavedWindow struct {
 	// for a free window.
 	Restore Rect
 	Focused bool
+	// Minimized is set for a window that was minimized.
+	Minimized bool
 	// Pane is the pane the window showed when it was saved, so the caller
 	// can look up details such as its directory. It means nothing after a
 	// restart.
@@ -47,11 +49,12 @@ func (s *Session) save() SavedSession {
 		w := s.windows[id]
 		frame, _ := s.stack.Frame(id)
 		saved.Windows = append(saved.Windows, SavedWindow{
-			ID:      id,
-			Frame:   frame,
-			Restore: s.restore[id],
-			Focused: id == focus,
-			Pane:    w.Pane,
+			ID:        id,
+			Frame:     frame,
+			Restore:   s.restore[id],
+			Focused:   id == focus,
+			Minimized: s.isMinimized(id),
+			Pane:      w.Pane,
 		})
 	}
 	return saved
@@ -79,6 +82,9 @@ func (s *Server) RestoreSession(saved SavedSession, title string) (*Session, err
 		}
 		if sw.Focused {
 			focus = w.ID
+		}
+		if sw.Minimized {
+			sess.minimized = append(sess.minimized, w.ID)
 		}
 	}
 	// New windows are numbered after the highest restored one.

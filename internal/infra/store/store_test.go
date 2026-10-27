@@ -19,7 +19,7 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 			Name: "work",
 			Area: domain.Rect{W: 80, H: 23},
 			Windows: []domain.SavedWindow{
-				{ID: 2, Frame: domain.Rect{X: 40, W: 40, H: 23}, Dir: "/tmp"},
+				{ID: 2, Frame: domain.Rect{X: 40, W: 40, H: 23}, Minimized: true, Dir: "/tmp"},
 				{ID: 1, Frame: domain.Rect{W: 40, H: 23}, Restore: domain.Rect{X: 5, Y: 5, W: 20, H: 8}, Focused: true},
 			},
 		},

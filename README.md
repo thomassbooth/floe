@@ -11,8 +11,12 @@ your programs: run `floe` again and everything is where you left it.
 ## Features
 
 - **Free windows.** In arrange mode, drag a title bar to move a window and
-  drag an edge or corner to resize it. Each title bar has maximize (□) and
-  close (×) buttons.
+  drag an edge or corner to resize it. Each title bar has minimize (_),
+  maximize (□) and close (×) buttons.
+- **Minimize.** Tuck a window away with `ctrl+b m` while its program keeps
+  running. Its tab stays in the status bar, in italics, still showing when
+  it is busy or rings the bell; click it or press `ctrl+b M` to bring the
+  window back.
 - **Snapping.** Drop a window on the left or right edge to fill that half of
   the screen, or near the top or bottom of an edge for a quarter. `ctrl+b =` tidies every window
   into a layout that fills the screen.
@@ -119,6 +123,8 @@ twice to send `ctrl+b` itself to the program in the window.
 | `H` `J` `K` `L` or shift+arrows | Resize the focused window (repeatable) |
 | `=` | Tidy all windows into a layout that fills the screen |
 | `z` | Maximize the focused window, or put it back |
+| `m` | Minimize the focused window; its program keeps running |
+| `M` | Bring back the most recently minimized window |
 | `x` | Close the focused window |
 | `a` | Enter arrange mode |
 
@@ -149,7 +155,8 @@ windows without pressing the prefix each time.
 | `h` `j` `k` `l` or arrows | Move the focused window |
 | `H` `J` `K` `L` or shift+arrows | Resize the focused window |
 | `tab` / `shift+tab` | Focus the next or previous window |
-| `=` `z` `c` `\|` `-` `x` | Tidy, maximize, new window, split, close |
+| `=` `z` `m` `M` | Tidy, maximize, minimize, restore |
+| `c` `\|` `-` `x` | New window, split, close |
 | `esc`, `enter`, `a` or `q` | Done |
 
 ### Custom keys
@@ -212,8 +219,8 @@ in the status bar and uses the defaults until it is fixed.
 | Drag a title bar, in arrange mode | Move the window |
 | Drag an edge or corner, in arrange mode | Resize the window |
 | Drop a window on the left or right edge | Snap it to that half, or a quarter near the top or bottom |
-| Click □ / × in a title bar | Maximize / close the window |
-| Click a tab in the status bar | Focus that window |
+| Click _ / □ / × in a title bar | Minimize / maximize / close the window |
+| Click a tab in the status bar | Focus that window, bringing it back if minimized |
 | Middle-click a tab | Close that window |
 | Click the session name | Open the session list |
 | Scroll the wheel | Scroll back through the window's history |

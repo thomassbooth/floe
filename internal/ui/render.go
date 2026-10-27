@@ -24,6 +24,9 @@ func (m Model) render() (string, *tea.Cursor) {
 
 	var cursor *tea.Cursor
 	for _, w := range m.snap.Windows {
+		if w.Minimized {
+			continue
+		}
 		w = m.drawnView(w)
 		m.drawFrame(canvas, w)
 		grid, ok := m.backend.Grid(w.Pane, m.scroll[w.Pane])
@@ -43,6 +46,9 @@ func (m Model) render() (string, *tea.Cursor) {
 
 	if m.arranging() {
 		cursor = nil // keys go to arranging, not the shell
+	}
+	if m.allMinimized() {
+		m.drawRestoreHint(canvas, m.snap.Area)
 	}
 	if m.drag != nil && m.drag.zone != domain.ZoneNone {
 		m.drawZone(canvas, m.drag.zone.Rect(m.snap.Area))
@@ -133,13 +139,15 @@ func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 	// The title gets the top border between the left corner and the
 	// buttons, keeping one line cell on each side.
 	titleEnd := right - 1
-	if maxCol, closeCol, ok := buttons(f); ok {
-		set(maxCol-1, f.Y, " ")
-		set(maxCol, f.Y, "□")
-		set(closeCol-1, f.Y, " ")
-		set(closeCol, f.Y, "×")
-		set(closeCol+1, f.Y, " ")
-		titleEnd = maxCol - 2
+	if b, ok := buttons(f); ok {
+		set(b.minimize-1, f.Y, " ")
+		set(b.minimize, f.Y, "_")
+		set(b.maximize-1, f.Y, " ")
+		set(b.maximize, f.Y, "□")
+		set(b.close-1, f.Y, " ")
+		set(b.close, f.Y, "×")
+		set(b.close+1, f.Y, " ")
+		titleEnd = b.minimize - 2
 	}
 	room := titleEnd - (f.X + 2)
 	if room < 3 {
@@ -152,6 +160,40 @@ func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 	title := ansi.Truncate(fmt.Sprintf(" %d %s ", w.ID, w.Title), room, "… ")
 	area := uv.Rect(f.X+2, f.Y, lipgloss.Width(title), 1)
 	uv.NewStyledString(titleStyle.Render(title)).Draw(scr, area)
+}
+
+// allMinimized reports whether the session has windows but shows none.
+func (m Model) allMinimized() bool {
+	for _, w := range m.snap.Windows {
+		if !w.Minimized {
+			return false
+		}
+	}
+	return len(m.snap.Windows) > 0
+}
+
+// drawRestoreHint says how to bring windows back, in the middle of a
+// screen left empty by minimizing them all.
+func (m Model) drawRestoreHint(scr uv.Screen, area domain.Rect) {
+	key := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+	dim := lipgloss.NewStyle().Foreground(m.theme.Title)
+	var restore string
+	for _, b := range m.keys.Keymap().Bindings {
+		if b.Name == "restore" && len(b.Keys) > 0 {
+			restore = m.keys.Keymap().Prefix.String() + " " + b.Keys[0].String()
+		}
+	}
+	line := dim.Render("Every window is minimized. Click a tab")
+	if restore != "" {
+		line += dim.Render(" or press ") + key.Render(restore)
+	}
+	line += dim.Render(" to bring one back.")
+	width := lipgloss.Width(line)
+	if width > area.W {
+		return
+	}
+	at := uv.Rect(area.X+(area.W-width)/2, area.Y+area.H/2, width, 1)
+	uv.NewStyledString(line).Draw(scr, at)
 }
 
 // drawScrollMarker shows how far up a scrolled window is, on its bottom
@@ -235,8 +277,11 @@ func (m Model) statusBar(width int) (line string, bounds toggleBounds) {
 	left.WriteString(bar.Render(" "))
 	for _, tab := range m.statusTabs() {
 		style := dim
-		if tab.window.Focused {
+		switch {
+		case tab.window.Focused:
 			style = bar.Background(t.ActiveTabBg).Bold(true)
+		case tab.window.Minimized:
+			style = dim.Italic(true)
 		}
 		left.WriteString(style.Render(tab.label))
 		if tab.marker != "" {

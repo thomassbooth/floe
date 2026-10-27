@@ -103,6 +103,15 @@ type ToggleMaximize struct {
 	ID WindowID
 }
 
+// MinimizeWindow hides a window and leaves its program running. A zero ID
+// means the focused window. Focusing the window shows it again.
+type MinimizeWindow struct {
+	ID WindowID
+}
+
+// RestoreMinimized shows and focuses the most recently minimized window.
+type RestoreMinimized struct{}
+
 // SnapWindow moves a window into a zone of the screen, remembering where it
 // was.
 type SnapWindow struct {
@@ -155,6 +164,8 @@ func (ResizeWindowEdge) command() {}
 func (SnapWindow) command()       {}
 func (Tidy) command()             {}
 func (ToggleMaximize) command()   {}
+func (MinimizeWindow) command()   {}
+func (RestoreMinimized) command() {}
 func (CloseWindow) command()      {}
 func (KillSession) command()      {}
 func (SendMouse) command()        {}

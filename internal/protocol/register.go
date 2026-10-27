@@ -21,7 +21,7 @@ var (
 		domain.CycleFocus{}, domain.PlaceWindow{}, domain.ResizeWindowEdge{},
 		domain.ToggleMaximize{}, domain.SnapWindow{}, domain.Tidy{},
 		domain.CloseWindow{}, domain.SendKey{}, domain.SendMouse{},
-		domain.Paste{},
+		domain.Paste{}, domain.MinimizeWindow{}, domain.RestoreMinimized{},
 	}
 	events = []domain.Event{
 		domain.LayoutChanged{}, domain.SessionsChanged{}, domain.ClipboardSet{},
