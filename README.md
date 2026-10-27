@@ -10,9 +10,9 @@ your programs: run `floe` again and everything is where you left it.
 
 ## Features
 
-- **Free windows.** In arrange mode, drag a title bar to move a window and
-  drag an edge or corner to resize it. Each title bar has minimize (_),
-  maximize (□) and close (×) buttons.
+- **Free windows.** In arrange mode, or anytime with ctrl held, drag a title
+  bar to move a window and drag an edge or corner to resize it. Each title
+  bar has minimize (_), maximize (□) and close (×) buttons.
 - **Minimize.** Tuck a window away with `ctrl+b m` while its program keeps
   running. Its tab stays in the status bar, in italics, still showing when
   it is busy or rings the bell; click it or press `ctrl+b M` to bring the
@@ -216,8 +216,8 @@ in the status bar and uses the defaults until it is fixed.
 
 | Do this | To |
 |---|---|
-| Drag a title bar, in arrange mode | Move the window |
-| Drag an edge or corner, in arrange mode | Resize the window |
+| Drag a title bar, in arrange mode or with ctrl held | Move the window |
+| Drag an edge or corner, in arrange mode or with ctrl held | Resize the window |
 | Drop a window on the left or right edge | Snap it to that half, or a quarter near the top or bottom |
 | Click _ / □ / × in a title bar | Minimize / maximize / close the window |
 | Click a tab in the status bar | Focus that window, bringing it back if minimized |

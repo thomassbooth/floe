@@ -161,7 +161,9 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	m.keys.Reset()
 	m.backend.Apply(domain.FocusWindow{ID: id})
 
-	// Moving and resizing only happen in arrange mode.
+	// Moving and resizing only happen in arrange mode, or with ctrl held,
+	// so a plain click never moves anything by accident.
+	arranging := m.arranging() || mouse.Mod.Contains(tea.ModCtrl)
 	switch t.part {
 	case partClose:
 		m.backend.Apply(domain.CloseWindow{ID: id})
@@ -170,11 +172,11 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	case partMinimize:
 		m.backend.Apply(domain.MinimizeWindow{ID: id})
 	case partTitle:
-		if m.arranging() {
+		if arranging {
 			m.drag = m.moveDrag(t.window, mouse.X, mouse.Y)
 		}
 	case partEdge:
-		if m.arranging() {
+		if arranging {
 			m.drag = &drag{window: id, edges: t.edges, start: domain.Point{X: mouse.X, Y: mouse.Y}}
 		}
 	}

@@ -6,32 +6,61 @@ import (
 	"testing"
 )
 
+// ctrlBit is what holding ctrl adds to a button code in SGR mouse reports.
+const ctrlBit = 16
+
 // press holds the left button down at x, y.
 func (tm *term) press(x, y int) {
 	tm.t.Helper()
-	tm.send(fmt.Sprintf("\x1b[<0;%d;%dM", x+1, y+1))
+	tm.pressWith(0, x, y)
+}
+
+func (tm *term) pressWith(mod, x, y int) {
+	tm.t.Helper()
+	tm.send(fmt.Sprintf("\x1b[<%d;%d;%dM", mod, x+1, y+1))
 }
 
 // moveTo moves the mouse with the left button held.
 func (tm *term) moveTo(x, y int) {
 	tm.t.Helper()
-	tm.send(fmt.Sprintf("\x1b[<32;%d;%dM", x+1, y+1))
+	tm.moveToWith(0, x, y)
+}
+
+func (tm *term) moveToWith(mod, x, y int) {
+	tm.t.Helper()
+	tm.send(fmt.Sprintf("\x1b[<%d;%d;%dM", 32+mod, x+1, y+1))
 }
 
 // release lets go of the left button at x, y.
 func (tm *term) release(x, y int) {
 	tm.t.Helper()
-	tm.send(fmt.Sprintf("\x1b[<0;%d;%dm", x+1, y+1))
+	tm.releaseWith(0, x, y)
+}
+
+func (tm *term) releaseWith(mod, x, y int) {
+	tm.t.Helper()
+	tm.send(fmt.Sprintf("\x1b[<%d;%d;%dm", mod, x+1, y+1))
 }
 
 // drag presses at one cell, moves to another in a few steps and releases.
 func (tm *term) drag(fromX, fromY, toX, toY int) {
 	tm.t.Helper()
-	tm.press(fromX, fromY)
+	tm.dragWith(0, fromX, fromY, toX, toY)
+}
+
+// ctrlDrag is drag with ctrl held down the whole way.
+func (tm *term) ctrlDrag(fromX, fromY, toX, toY int) {
+	tm.t.Helper()
+	tm.dragWith(ctrlBit, fromX, fromY, toX, toY)
+}
+
+func (tm *term) dragWith(mod, fromX, fromY, toX, toY int) {
+	tm.t.Helper()
+	tm.pressWith(mod, fromX, fromY)
 	for i := 1; i <= 3; i++ {
-		tm.moveTo(fromX+(toX-fromX)*i/3, fromY+(toY-fromY)*i/3)
+		tm.moveToWith(mod, fromX+(toX-fromX)*i/3, fromY+(toY-fromY)*i/3)
 	}
-	tm.release(toX, toY)
+	tm.releaseWith(mod, toX, toY)
 }
 
 // cell returns the character drawn at x, y.

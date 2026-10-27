@@ -15,6 +15,21 @@ func TestDraggingDoesNothingOutsideArrangeMode(t *testing.T) {
 	}
 }
 
+func TestCtrlDragMovesAndResizesOutsideArrangeMode(t *testing.T) {
+	tm := centeredWindowNormal(t) // window 2 is 50x15 at (25, 7)
+
+	tm.ctrlDrag(40, 7, 50, 9) // by the title, ten right and two down
+	tm.waitCell(35, 9, "╭")
+	tm.ctrlDrag(84, 23, 89, 25) // by the bottom right corner
+	tm.waitCell(89, 25, "╯")
+
+	if strings.Contains(tm.screen(), "ARRANGE") {
+		t.Fatal("ctrl+drag should not turn on arrange mode")
+	}
+	tm.typeLine("echo still-typing")
+	tm.waitFor("still-typing")
+}
+
 func TestStatusBarButtonTogglesArrangeMode(t *testing.T) {
 	tm := launch(t, 100, 30)
 	tm.waitFor(" 1 sh ")
