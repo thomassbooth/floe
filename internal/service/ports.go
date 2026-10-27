@@ -13,6 +13,9 @@ type PaneHost interface {
 	Resize(id domain.PaneID, size domain.Size)
 	SendKey(id domain.PaneID, key domain.Key)
 	Paste(id domain.PaneID, text string)
+	// SendMouse passes a mouse event to a pane's program, if it asked for
+	// that kind of event.
+	SendMouse(id domain.PaneID, ev domain.MouseEvent)
 	// Kill ends a pane's process. Its exit is still reported on Exited.
 	Kill(id domain.PaneID)
 	// Grid copies a pane's screen, scrolled scroll lines up into its

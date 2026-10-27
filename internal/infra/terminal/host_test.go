@@ -214,3 +214,36 @@ func TestHostScrollsIntoHistory(t *testing.T) {
 		t.Fatalf("the top row should be the first line printed, got %q", first)
 	}
 }
+
+func TestHostForwardsMouseOnlyWhenAskedFor(t *testing.T) {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 60, H: 10}, ""); err != nil {
+		t.Fatal(err)
+	}
+	click := domain.MouseEvent{Action: domain.MousePress, Button: domain.ButtonLeft, X: 4, Y: 2}
+	if st, _ := h.State(1); st.Mouse != domain.MouseReportOff {
+		t.Fatalf("a shell does not want the mouse, got %v", st.Mouse)
+	}
+
+	// A program turns on click reporting with SGR encoding, then echoes
+	// what it reads.
+	h.Paste(1, "printf '\\033[?1000h\\033[?1006h'; stty raw -echo; cat -v\r")
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if st, _ := h.State(1); st.Mouse == domain.MouseReportClicks {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the program's mouse mode was never seen")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	time.Sleep(100 * time.Millisecond) // let cat start reading
+
+	h.SendMouse(1, domain.MouseEvent{Action: domain.MouseMove, Button: domain.ButtonLeft, X: 9, Y: 9})
+	h.SendMouse(1, click)
+	waitForText(t, h, 1, "^[[<0;5;3M")
+	if g, _ := h.Grid(1, 0); strings.Contains(gridText(g), ";10;10") {
+		t.Fatal("click-only programs must not get motion")
+	}
+}

@@ -37,20 +37,46 @@ func toVTKey(k domain.Key) uv.KeyPressEvent {
 	if special, ok := specialKeys[code]; ok {
 		code = special
 	}
+	return uv.KeyPressEvent{Code: code, Text: k.Text, Mod: toVTMod(k.Mod)}
+}
+
+var mouseButtons = map[domain.MouseButton]uv.MouseButton{
+	domain.ButtonNone:   uv.MouseNone,
+	domain.ButtonLeft:   uv.MouseLeft,
+	domain.ButtonMiddle: uv.MouseMiddle,
+	domain.ButtonRight:  uv.MouseRight,
+	domain.WheelUp:      uv.MouseWheelUp,
+	domain.WheelDown:    uv.MouseWheelDown,
+}
+
+func toVTMouse(ev domain.MouseEvent) uv.MouseEvent {
+	m := uv.Mouse{X: ev.X, Y: ev.Y, Button: mouseButtons[ev.Button], Mod: toVTMod(ev.Mod)}
+	switch ev.Action {
+	case domain.MouseRelease:
+		return uv.MouseReleaseEvent(m)
+	case domain.MouseMove:
+		return uv.MouseMotionEvent(m)
+	case domain.MouseWheel:
+		return uv.MouseWheelEvent(m)
+	}
+	return uv.MouseClickEvent(m)
+}
+
+func toVTMod(km domain.KeyMod) uv.KeyMod {
 	var mod uv.KeyMod
-	if k.Mod&domain.ModShift != 0 {
+	if km&domain.ModShift != 0 {
 		mod |= uv.ModShift
 	}
-	if k.Mod&domain.ModAlt != 0 {
+	if km&domain.ModAlt != 0 {
 		mod |= uv.ModAlt
 	}
-	if k.Mod&domain.ModCtrl != 0 {
+	if km&domain.ModCtrl != 0 {
 		mod |= uv.ModCtrl
 	}
-	if k.Mod&domain.ModSuper != 0 {
+	if km&domain.ModSuper != 0 {
 		mod |= uv.ModSuper
 	}
-	return uv.KeyPressEvent{Code: code, Text: k.Text, Mod: mod}
+	return mod
 }
 
 var attrs = []struct {

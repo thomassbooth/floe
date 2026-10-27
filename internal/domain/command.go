@@ -126,6 +126,13 @@ type SendKey struct {
 	Window WindowID
 }
 
+// SendMouse forwards a mouse event to a window's pane, with X and Y
+// relative to the window's content.
+type SendMouse struct {
+	Window WindowID
+	Event  MouseEvent
+}
+
 // Paste forwards pasted text to the focused pane.
 type Paste struct {
 	Text string
@@ -150,5 +157,6 @@ func (Tidy) command()             {}
 func (ToggleMaximize) command()   {}
 func (CloseWindow) command()      {}
 func (KillSession) command()      {}
+func (SendMouse) command()        {}
 func (SendKey) command()          {}
 func (Paste) command()            {}

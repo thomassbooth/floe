@@ -53,6 +53,8 @@ type PaneState struct {
 	// AltScreen is set while a full-screen program, such as an editor, is
 	// using the alternate screen, which has no history.
 	AltScreen bool
+	// Mouse is which mouse events the pane's program wants.
+	Mouse MouseReport
 }
 
 // Grid is a copy of a pane's visible screen.

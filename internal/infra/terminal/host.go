@@ -14,6 +14,7 @@ import (
 	"time"
 
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 	"github.com/creack/pty"
 
@@ -112,11 +113,12 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 	}
 
 	p := &pane{
-		cmd:   cmd,
-		pty:   f,
-		emu:   vt.NewEmulator(size.W, size.H),
-		input: queue.New[[]byte](),
-		done:  make(chan struct{}),
+		cmd:        cmd,
+		pty:        f,
+		emu:        vt.NewEmulator(size.W, size.H),
+		mouseModes: make(map[ansi.DECMode]bool),
+		input:      queue.New[[]byte](),
+		done:       make(chan struct{}),
 	}
 	p.emu.SetScrollbackSize(scrollbackLines)
 	// Callbacks run inside emu.Write with p.mu held, so they only record
@@ -128,6 +130,16 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 		},
 		WorkingDirectory: func(dir string) {
 			p.oscDir = dir
+		},
+		EnableMode: func(m ansi.Mode) {
+			if d, ok := m.(ansi.DECMode); ok && isMouseMode(d) {
+				p.mouseModes[d] = true
+			}
+		},
+		DisableMode: func(m ansi.Mode) {
+			if d, ok := m.(ansi.DECMode); ok {
+				delete(p.mouseModes, d)
+			}
 		},
 	})
 	h.mu.Lock()
@@ -203,7 +215,30 @@ func (h *Host) State(id domain.PaneID) (domain.PaneState, bool) {
 	return domain.PaneState{
 		Scrollback: p.emu.ScrollbackLen(),
 		AltScreen:  p.emu.IsAltScreen(),
+		Mouse:      p.mouseReport(),
 	}, true
+}
+
+// SendMouse passes a mouse event to a pane's program, dropping kinds of
+// event it did not ask for.
+func (h *Host) SendMouse(id domain.PaneID, ev domain.MouseEvent) {
+	p, ok := h.pane(id)
+	if !ok {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	report := p.mouseReport()
+	if report == domain.MouseReportOff {
+		return
+	}
+	if ev.Action == domain.MouseMove {
+		held := ev.Button != domain.ButtonNone
+		if report == domain.MouseReportClicks || (report == domain.MouseReportDrags && !held) {
+			return
+		}
+	}
+	p.emu.SendMouse(toVTMouse(ev))
 }
 
 // WorkingDir returns the directory a pane's shell is in: the one it last
@@ -341,6 +376,8 @@ type pane struct {
 	// last reported with escape sequences, if any.
 	oscTitle string
 	oscDir   string
+	// mouseModes are the mouse reporting modes the program has turned on.
+	mouseModes map[ansi.DECMode]bool
 
 	input    *queue.Unbounded[[]byte]
 	done     chan struct{}
@@ -363,6 +400,28 @@ func (p *pane) title(shellName string) string {
 		return osc
 	}
 	return shellName
+}
+
+// mouseReport says which mouse events the program wants. p.mu must be held.
+func (p *pane) mouseReport() domain.MouseReport {
+	switch {
+	case p.mouseModes[ansi.ModeMouseAnyEvent]:
+		return domain.MouseReportMotion
+	case p.mouseModes[ansi.ModeMouseButtonEvent]:
+		return domain.MouseReportDrags
+	case p.mouseModes[ansi.ModeMouseNormal], p.mouseModes[ansi.ModeMouseHighlight], p.mouseModes[ansi.ModeMouseX10]:
+		return domain.MouseReportClicks
+	}
+	return domain.MouseReportOff
+}
+
+func isMouseMode(d ansi.DECMode) bool {
+	switch d {
+	case ansi.ModeMouseX10, ansi.ModeMouseNormal, ansi.ModeMouseHighlight,
+		ansi.ModeMouseButtonEvent, ansi.ModeMouseAnyEvent:
+		return true
+	}
+	return false
 }
 
 func (p *pane) readOutput(changed func()) {

@@ -22,6 +22,7 @@ type fakeHost struct {
 	changed  chan struct{}
 	dirty    []domain.PaneID
 
+	mice         map[domain.PaneID][]domain.MouseEvent
 	spawnDirs    map[domain.PaneID]string
 	titles       map[domain.PaneID]string
 	titleChanged chan struct{}
@@ -35,6 +36,7 @@ func newFakeHost() *fakeHost {
 		exited:  make(chan domain.PaneID, 16),
 		changed: make(chan struct{}, 1),
 
+		mice:         map[domain.PaneID][]domain.MouseEvent{},
 		spawnDirs:    map[domain.PaneID]string{},
 		titles:       map[domain.PaneID]string{},
 		titleChanged: make(chan struct{}, 1),
@@ -89,6 +91,12 @@ func (h *fakeHost) SendKey(id domain.PaneID, key domain.Key) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.keys[id] = append(h.keys[id], key)
+}
+
+func (h *fakeHost) SendMouse(id domain.PaneID, ev domain.MouseEvent) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.mice[id] = append(h.mice[id], ev)
 }
 
 func (h *fakeHost) Paste(id domain.PaneID, text string) {

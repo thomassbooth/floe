@@ -56,6 +56,9 @@ type Model struct {
 	prompt   *prompt
 	// drag is the window move or resize in progress, if any.
 	drag *drag
+	// capture is the window whose program gets the mouse until the button
+	// that was pressed in it is let go.
+	capture *capture
 	// scroll is how many lines each pane is scrolled up into its history,
 	// and seen how long that history was when last checked, so new output
 	// can be kept from moving a scrolled view.

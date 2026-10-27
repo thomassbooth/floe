@@ -26,6 +26,14 @@ type target struct {
 	edges []domain.Direction
 }
 
+// capture sends a press, the drag after it and its release to the program
+// in one window, even if the mouse leaves the window on the way.
+type capture struct {
+	window  domain.WindowID
+	content domain.Rect
+	button  domain.MouseButton
+}
+
 // drag is a move or resize in progress.
 type drag struct {
 	window domain.WindowID
@@ -115,14 +123,21 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 		m.statusBarClick(mouse.X, mouse.Button)
 		return
 	}
-	if mouse.Button != tea.MouseLeft {
-		return
-	}
 	t, ok := m.targetAt(mouse.X, mouse.Y)
 	if !ok {
 		return
 	}
 	id := t.window.ID
+	if t.part == partContent && m.wantsMouse(t.window) {
+		m.keys.Reset()
+		m.backend.Apply(domain.FocusWindow{ID: id})
+		m.capture = &capture{window: id, content: t.window.Content, button: mouseButtons[mouse.Button]}
+		m.forward(m.capture, domain.MousePress, mouse)
+		return
+	}
+	if mouse.Button != tea.MouseLeft {
+		return
+	}
 	m.keys.Reset()
 	m.backend.Apply(domain.FocusWindow{ID: id})
 
@@ -202,10 +217,14 @@ func (m Model) moveDrag(w domain.WindowView, x, y int) *drag {
 // mouseMotion turns a drag into absolute commands, so a fast drag that
 // skips cells still lands exactly under the mouse.
 func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
+	mouse := msg.Mouse()
+	if m.capture != nil {
+		m.forward(m.capture, domain.MouseMove, mouse)
+		return
+	}
 	if m.drag == nil {
 		return
 	}
-	mouse := msg.Mouse()
 	d := m.drag
 	if !d.moved && mouse.X == d.start.X && mouse.Y == d.start.Y {
 		return
@@ -238,6 +257,11 @@ func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
 // mouseRelease ends a drag, snapping the window if it was dropped on a
 // zone.
 func (m *Model) mouseRelease(msg tea.MouseReleaseMsg) {
+	if c := m.capture; c != nil {
+		m.capture = nil
+		m.forward(c, domain.MouseRelease, msg.Mouse())
+		return
+	}
 	d := m.drag
 	m.drag = nil
 	if d == nil || !d.move || !d.moved {
@@ -259,6 +283,11 @@ func (m *Model) mouseWheel(msg tea.MouseWheelMsg) {
 	mouse := msg.Mouse()
 	w, ok := m.snap.WindowAt(mouse.X, mouse.Y)
 	if !ok {
+		return
+	}
+	if w.Content.Contains(mouse.X, mouse.Y) && m.wantsMouse(w) {
+		c := &capture{window: w.ID, content: w.Content, button: mouseButtons[mouse.Button]}
+		m.forward(c, domain.MouseWheel, mouse)
 		return
 	}
 	st, ok := m.backend.State(w.Pane)
@@ -336,4 +365,27 @@ func (m *Model) unscrollOnInput(cmd domain.Command) {
 			m.setScroll(w.Pane, 0, 0)
 		}
 	}
+}
+
+// wantsMouse reports whether a window's program takes mouse input. Arrange
+// mode keeps the mouse for arranging.
+func (m Model) wantsMouse(w domain.WindowView) bool {
+	if m.arranging() {
+		return false
+	}
+	st, ok := m.backend.State(w.Pane)
+	return ok && st.Mouse != domain.MouseReportOff
+}
+
+// forward sends a mouse event to a captured window's program, at the
+// position within its content, kept inside it.
+func (m *Model) forward(c *capture, action domain.MouseAction, mouse tea.Mouse) {
+	r := c.content
+	m.backend.Apply(domain.SendMouse{Window: c.window, Event: domain.MouseEvent{
+		Action: action,
+		Button: c.button,
+		X:      min(max(mouse.X-r.X, 0), max(r.W-1, 0)),
+		Y:      min(max(mouse.Y-r.Y, 0), max(r.H-1, 0)),
+		Mod:    toDomainMod(mouse.Mod),
+	}})
 }

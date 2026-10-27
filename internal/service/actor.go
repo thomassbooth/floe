@@ -202,6 +202,8 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		}
 	case domain.SendKey:
 		return s.input.sendKey(sess, c.Window, c.Key)
+	case domain.SendMouse:
+		return s.input.sendMouse(sess, c.Window, c.Event)
 	case domain.Paste:
 		s.input.paste(sess, c.Text)
 	default:

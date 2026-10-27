@@ -38,19 +38,7 @@ var specialKeys = map[rune]rune{
 // toDomainKey translates a Bubble Tea key press. It reports false for keys
 // the multiplexer does not support yet, such as keypad keys.
 func toDomainKey(k tea.Key) (domain.Key, bool) {
-	var mod domain.KeyMod
-	if k.Mod.Contains(tea.ModShift) {
-		mod |= domain.ModShift
-	}
-	if k.Mod.Contains(tea.ModAlt) {
-		mod |= domain.ModAlt
-	}
-	if k.Mod.Contains(tea.ModCtrl) {
-		mod |= domain.ModCtrl
-	}
-	if k.Mod.Contains(tea.ModSuper) {
-		mod |= domain.ModSuper
-	}
+	mod := toDomainMod(k.Mod)
 
 	if special, ok := specialKeys[k.Code]; ok {
 		return domain.Key{Code: special, Mod: mod}, true
@@ -63,6 +51,31 @@ func toDomainKey(k tea.Key) (domain.Key, bool) {
 		return domain.Key{}, false
 	}
 	return domain.Key{Code: k.Code, Mod: mod}, true
+}
+
+func toDomainMod(m tea.KeyMod) domain.KeyMod {
+	var mod domain.KeyMod
+	if m.Contains(tea.ModShift) {
+		mod |= domain.ModShift
+	}
+	if m.Contains(tea.ModAlt) {
+		mod |= domain.ModAlt
+	}
+	if m.Contains(tea.ModCtrl) {
+		mod |= domain.ModCtrl
+	}
+	if m.Contains(tea.ModSuper) {
+		mod |= domain.ModSuper
+	}
+	return mod
+}
+
+var mouseButtons = map[tea.MouseButton]domain.MouseButton{
+	tea.MouseLeft:      domain.ButtonLeft,
+	tea.MouseMiddle:    domain.ButtonMiddle,
+	tea.MouseRight:     domain.ButtonRight,
+	tea.MouseWheelUp:   domain.WheelUp,
+	tea.MouseWheelDown: domain.WheelDown,
 }
 
 var attrs = []struct {
