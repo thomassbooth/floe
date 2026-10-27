@@ -29,6 +29,9 @@ type persistenceService struct {
 	server   *domain.Server
 	sessions *sessionService
 	layout   *layoutService
+	// title is what restored windows are called until their shell says
+	// otherwise.
+	title string
 
 	timer *time.Timer
 	// pending hands the latest snapshot to the saver; an unsaved older one
@@ -57,13 +60,14 @@ func (p *persistenceService) takeErr() error {
 	return err
 }
 
-func newPersistenceService(store SessionStore, host PaneHost, server *domain.Server, sessions *sessionService, layout *layoutService) *persistenceService {
+func newPersistenceService(store SessionStore, host PaneHost, server *domain.Server, sessions *sessionService, layout *layoutService, title string) *persistenceService {
 	p := &persistenceService{
 		store:    store,
 		host:     host,
 		server:   server,
 		sessions: sessions,
 		layout:   layout,
+		title:    title,
 		pending:  make(chan []domain.SavedSession, 1),
 		saved:    make(chan struct{}),
 	}
@@ -87,7 +91,7 @@ func (p *persistenceService) restore() {
 		return
 	}
 	for _, ss := range saved {
-		sess, err := p.server.RestoreSession(ss)
+		sess, err := p.server.RestoreSession(ss, p.title)
 		if err != nil {
 			p.fail(err)
 			continue

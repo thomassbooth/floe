@@ -63,7 +63,7 @@ func New(host PaneHost, opts Options) *Service {
 		clients:   newClientService(server),
 		sessions:  sessions,
 		lifecycle: newLifecycleService(server, sessions),
-		persist:   newPersistenceService(opts.Store, host, server, sessions, layout),
+		persist:   newPersistenceService(opts.Store, host, server, sessions, layout, opts.Title),
 		windows:   windows,
 		focus:     newFocusService(),
 		layout:    layout,

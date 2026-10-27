@@ -55,7 +55,6 @@ type (
 	}
 	fileWindow struct {
 		ID      int       `json:"id"`
-		Title   string    `json:"title,omitempty"`
 		Frame   fileRect  `json:"frame"`
 		Restore *fileRect `json:"restore,omitempty"`
 		Focused bool      `json:"focused,omitempty"`
@@ -88,7 +87,6 @@ func (f *File) Load() ([]domain.SavedSession, error) {
 		for _, w := range s.Windows {
 			sw := domain.SavedWindow{
 				ID:      domain.WindowID(w.ID),
-				Title:   w.Title,
 				Frame:   w.Frame.domain(),
 				Focused: w.Focused,
 				Dir:     w.Dir,
@@ -110,7 +108,6 @@ func (f *File) Save(sessions []domain.SavedSession) error {
 		for _, w := range s.Windows {
 			fw := fileWindow{
 				ID:      int(w.ID),
-				Title:   w.Title,
 				Frame:   toFileRect(w.Frame),
 				Focused: w.Focused,
 				Dir:     w.Dir,

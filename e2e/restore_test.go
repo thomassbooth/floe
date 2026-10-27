@@ -67,3 +67,19 @@ func TestKillingTheLastSessionStartsFreshNextTime(t *testing.T) {
 		t.Fatal("a killed session must not come back")
 	}
 }
+
+func TestRestoredWindowsDoNotKeepOldProgramTitles(t *testing.T) {
+	state := t.TempDir()
+	tm := launchWith(t, options{w: 100, h: 30, state: state})
+	tm.waitFor(" 1 sh ")
+	tm.waitPrompts(1)
+	tm.typeLine("sleep 60")
+	tm.waitFor("╭─ 1 sleep ")
+	tm.cmd.Process.Signal(syscall.SIGHUP)
+	tm.waitExit()
+
+	// The program does not come back, so neither should its title.
+	again := launchWith(t, options{w: 100, h: 30, state: state})
+	again.waitPrompts(1)
+	again.waitFor("╭─ 1 sh ")
+}

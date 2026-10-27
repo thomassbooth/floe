@@ -171,7 +171,7 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 
 	fresh := NewServer()
 	for _, ss := range saved {
-		if _, err := fresh.RestoreSession(ss); err != nil {
+		if _, err := fresh.RestoreSession(ss, "sh"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -185,15 +185,19 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	}
 	for i := range before.Windows {
 		b, a := before.Windows[i], after.Windows[i]
-		if b.ID != a.ID || b.Title != a.Title || b.Frame != a.Frame || b.Restore != a.Restore || b.Focused != a.Focused {
+		if b.ID != a.ID || b.Frame != a.Frame || b.Restore != a.Restore || b.Focused != a.Focused {
 			t.Errorf("window %d: before %+v, after %+v", i, b, a)
 		}
+	}
+	// Programs are not restored, so neither are their titles.
+	if after.Windows[1].Title != "sh" {
+		t.Fatalf("restored title = %q, want the shell's", after.Windows[1].Title)
 	}
 	// Restored windows get new panes, never ones shown elsewhere.
 	if a, b := after.Windows[0].Pane, after.Windows[1].Pane; a == b || a == 0 {
 		t.Fatalf("panes %d and %d", a, b)
 	}
-	if _, err := fresh.RestoreSession(saved[0]); err == nil {
+	if _, err := fresh.RestoreSession(saved[0], "sh"); err == nil {
 		t.Fatal("a name already in use cannot be restored twice")
 	}
 	// New windows continue the numbering.
@@ -203,7 +207,7 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	}
 
 	bad := SavedSession{Name: "bad", Windows: []SavedWindow{{ID: 1}, {ID: 1}}}
-	if _, err := fresh.RestoreSession(bad); err == nil {
+	if _, err := fresh.RestoreSession(bad, "sh"); err == nil {
 		t.Fatal("duplicate window numbers should be refused")
 	}
 	if _, ok := fresh.SessionByName("bad"); ok {

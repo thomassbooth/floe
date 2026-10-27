@@ -51,8 +51,8 @@ func TestServiceRestoresSavedSessions(t *testing.T) {
 		Name: "work",
 		Area: domain.Rect{W: 80, H: 24},
 		Windows: []domain.SavedWindow{
-			{ID: 1, Title: "sh", Frame: domain.Rect{W: 40, H: 24}, Dir: "/home/me"},
-			{ID: 3, Title: "vim", Frame: domain.Rect{X: 40, W: 40, H: 24}, Dir: "/src", Focused: true},
+			{ID: 1, Frame: domain.Rect{W: 40, H: 24}, Dir: "/home/me"},
+			{ID: 3, Frame: domain.Rect{X: 40, W: 40, H: 24}, Dir: "/src", Focused: true},
 		},
 	}}}
 	h := startWithStore(t, newFakeHost(), store)
