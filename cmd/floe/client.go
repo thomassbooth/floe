@@ -18,10 +18,16 @@ import (
 	"github.com/thomassbooth/floe/internal/ui"
 )
 
-// errOtherBuild explains what to do when the server is older, or newer,
-// than this client.
-var errOtherBuild = errors.New(`the running floe server is a different build of floe.
-Run "floe kill-server" to replace it: windows and layouts are kept, but the programs in them stop`)
+// otherBuild explains what to do when the server is older, or newer, than
+// this client.
+func otherBuild(server string) error {
+	what := fmt.Sprintf("is floe %s, but this is floe %s", server, release())
+	if server == release() {
+		what = fmt.Sprintf("is a different build of floe %s", server)
+	}
+	return fmt.Errorf(`the running floe server %s.
+Run "floe kill-server" to replace it: windows and layouts are kept, but the programs in them stop`, what)
+}
 
 // runClient attaches this terminal to the server and shows it until the
 // client detaches.
@@ -39,8 +45,9 @@ func runClient() error {
 		return err
 	}
 	client, err := remote.Dial(conn, build)
-	if errors.Is(err, remote.ErrOtherBuild) {
-		return errOtherBuild
+	var other *remote.OtherBuildError
+	if errors.As(err, &other) {
+		return otherBuild(other.Release)
 	}
 	if err != nil {
 		return err

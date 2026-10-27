@@ -41,7 +41,7 @@ type Client struct {
 }
 
 // Dial introduces itself to the server over rwc as build and returns the
-// connected client. It fails with ErrOtherBuild when the server runs a
+// connected client. It fails with an *OtherBuildError when the server runs a
 // different build.
 func Dial(rwc io.ReadWriteCloser, build string) (*Client, error) {
 	conn := protocol.NewConn(rwc)
@@ -78,7 +78,7 @@ func handshake(conn *protocol.Conn, build string) error {
 	case !ok:
 		return fmt.Errorf("greet the floe server: unexpected %T", m)
 	case welcome.Err == ErrOtherBuild.Error():
-		return ErrOtherBuild
+		return &OtherBuildError{Release: welcome.Release}
 	case welcome.Err != "":
 		return fmt.Errorf("the floe server refused: %s", welcome.Err)
 	}

@@ -23,9 +23,11 @@ type Hello struct {
 }
 
 // Welcome answers Hello. Err is set when the server refuses the client; it
-// then closes the connection.
+// then closes the connection. Release is the server's version, for people
+// to read.
 type Welcome struct {
-	Err string
+	Err     string
+	Release string
 }
 
 // Apply carries a command from a client.

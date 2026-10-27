@@ -28,7 +28,7 @@ func TestADifferentBuildIsToldToReplaceTheServer(t *testing.T) {
 	cmd := exec.Command(other)
 	cmd.Env = tm.env
 	out, err := cmd.CombinedOutput()
-	if err == nil || !strings.Contains(string(out), `different build of floe`) || !strings.Contains(string(out), `floe kill-server`) {
+	if err == nil || !strings.Contains(string(out), `is a different build of floe`) || !strings.Contains(string(out), `floe kill-server`) {
 		t.Fatalf("got %v: %s", err, out)
 	}
 	// The running server and its client are untouched.

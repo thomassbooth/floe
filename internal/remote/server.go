@@ -35,6 +35,7 @@ const (
 type Server struct {
 	connect func() LocalClient
 	build   string
+	release string
 	// helloTimeout is how long a new connection has to introduce itself.
 	helloTimeout time.Duration
 	// drainTimeout is how long connections get, when the server stops, to
@@ -49,10 +50,12 @@ type Server struct {
 
 // NewServer returns a server that connects each accepted client with
 // connect. Only clients from the same build, as named by build, are let in.
-func NewServer(connect func() LocalClient, build string) *Server {
+// release is the version clients are told the server is.
+func NewServer(connect func() LocalClient, build, release string) *Server {
 	return &Server{
 		connect:      connect,
 		build:        build,
+		release:      release,
 		helloTimeout: defaultHelloTimeout,
 		drainTimeout: defaultDrainTimeout,
 		conns:        make(map[*protocol.Conn]bool),
@@ -188,7 +191,7 @@ func (s *Server) greet(conn *protocol.Conn) error {
 	case hello.Build != s.build:
 		refusal = ErrOtherBuild.Error()
 	}
-	if err := conn.Send(protocol.Welcome{Err: refusal}); err != nil {
+	if err := conn.Send(protocol.Welcome{Err: refusal, Release: s.release}); err != nil {
 		return err
 	}
 	if refusal != "" {
@@ -224,5 +227,18 @@ func forwardChanges(conn *protocol.Conn, client LocalClient, done <-chan struct{
 }
 
 // ErrOtherBuild is why a server refuses a client from a different build of
-// floe.
+// floe. Dial returns it as an *OtherBuildError.
 var ErrOtherBuild = errors.New("the floe server is running a different build")
+
+// OtherBuildError is returned by Dial when the server is a different build.
+type OtherBuildError struct {
+	// Release is the server's version.
+	Release string
+}
+
+func (e *OtherBuildError) Error() string {
+	return fmt.Sprintf("%v (%s)", ErrOtherBuild, e.Release)
+}
+
+// Is makes errors.Is(err, ErrOtherBuild) true.
+func (e *OtherBuildError) Is(target error) bool { return target == ErrOtherBuild }

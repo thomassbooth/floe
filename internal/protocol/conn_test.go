@@ -140,7 +140,7 @@ func TestGridsAndStatesCross(t *testing.T) {
 	}
 	for _, m := range []Message{
 		Hello{Version: Version, Build: "abc"},
-		Welcome{Err: "different build"},
+		Welcome{Err: "different build", Release: "v1.2.3"},
 		Changed{},
 		GridRequest{ID: 1, Pane: 2, Scroll: 3},
 		GridReply{ID: 1, Grid: grid, OK: true},

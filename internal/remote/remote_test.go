@@ -95,7 +95,7 @@ func newRig(t *testing.T, build string, opts ...func(*Server)) *rig {
 		f := newFakeLocal()
 		r.locals <- f
 		return f
-	}, build)
+	}, build, "v9.9.9")
 	r.server.drainTimeout = 100 * time.Millisecond
 	for _, opt := range opts {
 		opt(r.server)
@@ -273,8 +273,10 @@ func TestLosingTheServerDetachesWithAnError(t *testing.T) {
 
 func TestServerRefusesOtherBuilds(t *testing.T) {
 	r := newRig(t, "build-1")
-	if _, err := Dial(r.dialConn(), "build-2"); !errors.Is(err, ErrOtherBuild) {
-		t.Fatalf("err = %v, want ErrOtherBuild", err)
+	_, err := Dial(r.dialConn(), "build-2")
+	var other *OtherBuildError
+	if !errors.Is(err, ErrOtherBuild) || !errors.As(err, &other) || other.Release != "v9.9.9" {
+		t.Fatalf("err = %v, want an OtherBuildError naming v9.9.9", err)
 	}
 	select {
 	case <-r.locals:

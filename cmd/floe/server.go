@@ -107,11 +107,11 @@ func serve(ready func(string)) error {
 
 	serveCtx, stopServing := context.WithCancel(context.Background())
 	defer stopServing()
-	srv := remote.NewServer(func() remote.LocalClient { return svc.Connect() }, build)
+	srv := remote.NewServer(func() remote.LocalClient { return svc.Connect() }, build, release())
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(serveCtx, listener) }()
 
-	log.Print("listening on ", path)
+	log.Printf("%s listening on %s", release(), path)
 	ready(readyListening)
 
 	// The service stops when the last session ends or on SIGTERM; then
