@@ -164,3 +164,7 @@ go test -short ./...   # skip the slower end-to-end tests
 The end-to-end tests run the real binary in a pseudo-terminal, each with its
 own server, settings and state, so they never touch yours. See
 [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is laid out.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
