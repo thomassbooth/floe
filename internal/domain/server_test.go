@@ -2,6 +2,8 @@ package domain
 
 import (
 	"errors"
+	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -158,6 +160,8 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	work.SetArea(screen)
 	work.OpenWindow("vim", Right, s.NewPaneID())
 	work.OpenWindow("sh", Right, s.NewPaneID())
+	work.OpenWindow("top", Down, s.NewPaneID())
+	work.Minimize(3)
 	work.Snap(2, ZoneRight)
 	work.Focus(1)
 	other := mustCreate(t, s, "other")
@@ -165,9 +169,12 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	other.OpenWindow("sh", Right, s.NewPaneID())
 
 	saved := s.Save()
-	if len(saved) != 2 || saved[0].Name != "work" || len(saved[0].Windows) != 2 {
+	if len(saved) != 2 || saved[0].Name != "work" || len(saved[0].Windows) != 3 {
 		t.Fatalf("saved = %+v", saved)
 	}
+	// Dir is filled in by whoever saves the sessions, since only it knows
+	// where each pane's program is, and panes are never carried over.
+	requireEveryFieldSet(t, saved[0].Windows, "Dir", "Pane")
 
 	fresh := NewServer()
 	for _, ss := range saved {
@@ -179,16 +186,16 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatal("work was not restored")
 	}
-	before, after := work.Snapshot(), got.Snapshot()
-	if before.Area != after.Area || before.Focused != after.Focused || len(before.Windows) != len(after.Windows) {
-		t.Fatalf("before %+v\nafter  %+v", before, after)
+	// Saving the restored session again gives back what was saved, apart
+	// from the panes, which are new.
+	resaved := got.save()
+	for i := range resaved.Windows {
+		resaved.Windows[i].Pane = saved[0].Windows[i].Pane
 	}
-	for i := range before.Windows {
-		b, a := before.Windows[i], after.Windows[i]
-		if b.ID != a.ID || b.Frame != a.Frame || b.Restore != a.Restore || b.Focused != a.Focused {
-			t.Errorf("window %d: before %+v, after %+v", i, b, a)
-		}
+	if !reflect.DeepEqual(resaved, saved[0]) {
+		t.Fatalf("saved    %+v\nrestored %+v", saved[0], resaved)
 	}
+	after := got.Snapshot()
 	// Programs are not restored, so neither are their titles.
 	if after.Windows[1].Title != "sh" {
 		t.Fatalf("restored title = %q, want the shell's", after.Windows[1].Title)
@@ -202,8 +209,8 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	}
 	// New windows continue the numbering.
 	w, _ := got.OpenWindow("sh", Down, fresh.NewPaneID())
-	if w.ID != 3 {
-		t.Fatalf("next window = %d, want 3", w.ID)
+	if w.ID != 4 {
+		t.Fatalf("next window = %d, want 4", w.ID)
 	}
 
 	bad := SavedSession{Name: "bad", Windows: []SavedWindow{{ID: 1}, {ID: 1}}}
@@ -212,5 +219,27 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	}
 	if _, ok := fresh.SessionByName("bad"); ok {
 		t.Fatal("a refused session must not be left behind")
+	}
+}
+
+// requireEveryFieldSet fails unless each field of T, apart from skip, has
+// a value in at least one of items. It keeps round-trip tests honest: a
+// field added later fails here until the test gives it a value, rather
+// than passing because it is zero on both sides.
+func requireEveryFieldSet[T any](t *testing.T, items []T, skip ...string) {
+	t.Helper()
+	typ := reflect.TypeFor[T]()
+	for i := range typ.NumField() {
+		name := typ.Field(i).Name
+		if slices.Contains(skip, name) {
+			continue
+		}
+		set := false
+		for _, item := range items {
+			set = set || !reflect.ValueOf(item).Field(i).IsZero()
+		}
+		if !set {
+			t.Errorf("no %s in the test sets %s; give one a value so the round trip covers it", typ.Name(), name)
+		}
 	}
 }

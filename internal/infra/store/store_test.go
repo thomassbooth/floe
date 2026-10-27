@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/thomassbooth/floe/internal/domain"
@@ -25,6 +26,8 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 		},
 		{Name: "empty", Area: domain.Rect{W: 10, H: 10}},
 	}
+	// Pane means nothing after a restart, so it is not written down.
+	requireEveryFieldSet(t, saved[0].Windows, "Pane")
 	if err := f.Save(saved); err != nil {
 		t.Fatal(err)
 	}
@@ -55,5 +58,26 @@ func TestDefaultPathHonorsXDGStateHome(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "/tmp/state")
 	if got, _ := DefaultPath(); got != "/tmp/state/floe/sessions.json" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+// requireEveryFieldSet fails unless each field of T, apart from skip, has
+// a value in at least one of items, so a field added later cannot pass the
+// round trip just by being zero on both sides.
+func requireEveryFieldSet[T any](t *testing.T, items []T, skip ...string) {
+	t.Helper()
+	typ := reflect.TypeFor[T]()
+	for i := range typ.NumField() {
+		name := typ.Field(i).Name
+		if slices.Contains(skip, name) {
+			continue
+		}
+		set := false
+		for _, item := range items {
+			set = set || !reflect.ValueOf(item).Field(i).IsZero()
+		}
+		if !set {
+			t.Errorf("no %s in the test sets %s; give one a value so the round trip covers it", typ.Name(), name)
+		}
 	}
 }
