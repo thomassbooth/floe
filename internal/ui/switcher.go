@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/thomassbooth/floe/internal/domain"
-	"github.com/thomassbooth/floe/internal/theme"
 )
 
 // switcher is the session list overlay.
@@ -27,9 +27,8 @@ func newSwitcher(list domain.SessionsChanged) *switcher {
 	return s
 }
 
-// handle reacts to a key. It returns a command to send, if any, and whether
-// the switcher should close.
-func (s *switcher) handle(k domain.Key, sessions []domain.SessionInfo) (domain.Command, bool) {
+func (s *switcher) key(m *Model, k domain.Key) (domain.Command, bool) {
+	sessions := m.sessions.Sessions
 	s.clamp(len(sessions))
 	switch {
 	case k.Code == domain.KeyUp || k.Code == 'k':
@@ -54,8 +53,14 @@ func (s *switcher) clamp(n int) {
 
 const switcherHelp = "↑↓ select · enter switch · n new · x kill · esc close"
 
-// draw renders the switcher centered in area.
-func (s *switcher) draw(scr uv.Screen, area domain.Rect, list domain.SessionsChanged, t theme.Theme) {
+// press closes the switcher, wherever the click lands.
+func (s *switcher) press(*Model, domain.Point) (bool, bool) {
+	return true, false
+}
+
+// draw renders the switcher centered over the windows.
+func (s *switcher) draw(m Model, scr uv.Screen) (*tea.Cursor, bool) {
+	area, list, t := m.snap.Area, m.sessions, m.theme
 	s.clamp(len(list.Sessions))
 
 	nameWidth := 4
@@ -65,7 +70,7 @@ func (s *switcher) draw(scr uv.Screen, area domain.Rect, list domain.SessionsCha
 	inner := max(nameWidth+20, lipgloss.Width(switcherHelp)+2)
 	inner = min(inner, area.W-4)
 	if inner < 10 || area.H < 6 {
-		return
+		return nil, true
 	}
 
 	panel := lipgloss.NewStyle().Background(t.BarBg).Foreground(t.BarFg).Width(inner)
@@ -106,4 +111,5 @@ func (s *switcher) draw(scr uv.Screen, area domain.Rect, list domain.SessionsCha
 	x := area.X + (area.W-w)/2
 	y := area.Y + (area.H-h)/2
 	uv.NewStyledString(box).Draw(scr, uv.Rect(x, y, w, h))
+	return nil, true
 }

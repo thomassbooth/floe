@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
@@ -31,27 +32,29 @@ func newThemePicker(current theme.Theme) *themePicker {
 	return p
 }
 
-// pickerResult is what a key does to the theme picker.
-type pickerResult int
-
-const (
-	pickerOpen   pickerResult = iota // still choosing
-	pickerKeep                       // keep the previewed theme
-	pickerCancel                     // go back to the original theme
-)
-
-func (p *themePicker) handle(k domain.Key) pickerResult {
+// key previews the theme moved to, and keeps it or goes back to the
+// original when the picker closes.
+func (p *themePicker) key(m *Model, k domain.Key) (domain.Command, bool) {
 	switch {
 	case k.Code == domain.KeyUp || k.Code == 'k':
 		p.selected = max(p.selected-1, 0)
 	case k.Code == domain.KeyDown || k.Code == 'j':
 		p.selected = min(p.selected+1, len(p.themes)-1)
 	case k.Code == domain.KeyEnter:
-		return pickerKeep
+		m.keepTheme(p.current())
+		return nil, true
 	case k.Code == domain.KeyEscape || k.Code == 'q':
-		return pickerCancel
+		m.theme = p.original
+		return nil, true
 	}
-	return pickerOpen
+	m.theme = p.current()
+	return nil, false
+}
+
+// press cancels the picker, wherever the click lands.
+func (p *themePicker) press(m *Model, _ domain.Point) (bool, bool) {
+	m.theme = p.original
+	return true, false
 }
 
 // current is the theme being previewed.
@@ -61,10 +64,11 @@ func (p *themePicker) current() theme.Theme {
 
 const themePickerHelp = "↑↓ preview · enter keep · esc cancel"
 
-// draw renders the picker centered in area, in the previewed theme. Each
-// row ends with swatches of its theme's colors, drawn as colored cells so
-// they are one column wide in every terminal.
-func (p *themePicker) draw(scr uv.Screen, area domain.Rect, t theme.Theme) {
+// draw renders the picker centered over the windows, in the previewed
+// theme. Each row ends with swatches of its theme's colors, drawn as
+// colored cells so they are one column wide in every terminal.
+func (p *themePicker) draw(m Model, scr uv.Screen) (*tea.Cursor, bool) {
+	area, t := m.snap.Area, m.theme
 	labelW := 0
 	for _, th := range p.themes {
 		labelW = max(labelW, lipgloss.Width(th.Label))
@@ -73,7 +77,7 @@ func (p *themePicker) draw(scr uv.Screen, area domain.Rect, t theme.Theme) {
 	inner := max(labelW+4+swatchW+1, lipgloss.Width(themePickerHelp)+2)
 	inner = min(inner, area.W-4)
 	if inner < 16 || area.H < 6 {
-		return
+		return nil, true
 	}
 
 	panel := lipgloss.NewStyle().Background(t.BarBg).Foreground(t.BarFg)
@@ -115,4 +119,5 @@ func (p *themePicker) draw(scr uv.Screen, area domain.Rect, t theme.Theme) {
 	x := area.X + (area.W-w)/2
 	y := area.Y + (area.H-h)/2
 	uv.NewStyledString(box).Draw(scr, uv.Rect(x, y, w, h))
+	return nil, true
 }

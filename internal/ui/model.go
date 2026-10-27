@@ -54,10 +54,8 @@ type Model struct {
 	sessions      domain.SessionsChanged
 	notice        string
 
-	// Overlays that take the keyboard while open; nil when closed.
-	switcher *switcher
-	picker   *themePicker
-	prompt   *prompt
+	// overlay takes the keyboard while it is open; nil when none is.
+	overlay overlay
 	// drag is the window move or resize in progress, if any.
 	drag *drag
 	// capture is the window whose program gets the mouse until the button
@@ -204,20 +202,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handleKey routes a key to the open overlay, or else to the key machine.
 func (m *Model) handleKey(k domain.Key) {
 	var cmd domain.Command
-	switch {
-	case m.prompt != nil:
-		var done bool
-		if cmd, done = m.prompt.handle(k); done {
-			m.prompt = nil
-		}
-	case m.switcher != nil:
-		var done bool
-		if cmd, done = m.switcher.handle(k, m.sessions.Sessions); done {
-			m.switcher = nil
-		}
-	case m.picker != nil:
-		m.handlePicker(k)
-	default:
+	if m.overlay != nil {
+		cmd = m.keyToOverlay(k)
+	} else {
 		res, ok := m.keys.Handle(k)
 		if !ok {
 			return
@@ -234,7 +221,7 @@ func (m *Model) handleKey(k domain.Key) {
 func (m *Model) runAction(a input.Action) {
 	switch a {
 	case input.ActionThemePicker:
-		m.picker = newThemePicker(m.theme)
+		m.overlay = newThemePicker(m.theme)
 	case input.ActionNewWindow:
 		// Half the whole terminal, centered in it. The session only knows
 		// the area above the status bar, so the client works this out.
@@ -246,9 +233,9 @@ func (m *Model) runAction(a input.Action) {
 			H: h,
 		}})
 	case input.ActionSessionSwitcher:
-		m.switcher = newSwitcher(m.sessions)
+		m.overlay = newSwitcher(m.sessions)
 	case input.ActionRenameSession:
-		m.prompt = newPrompt("rename session", m.snap.Name, func(name string) domain.Command {
+		m.overlay = newPrompt("rename session", m.snap.Name, func(name string) domain.Command {
 			return domain.RenameSession{Name: name}
 		})
 	case input.ActionPrevSession:
@@ -260,31 +247,20 @@ func (m *Model) runAction(a input.Action) {
 	}
 }
 
-// handlePicker previews the theme the picker is on, and keeps or reverts
-// it when the picker closes.
-func (m *Model) handlePicker(k domain.Key) {
-	switch m.picker.handle(k) {
-	case pickerOpen:
-		m.theme = m.picker.current()
-	case pickerKeep:
-		m.theme = m.picker.current()
-		m.themeChosen = true
-		m.picker = nil
-		if m.prefs != nil {
-			if err := m.prefs.SetTheme(m.theme.Name); err != nil {
-				m.notice = err.Error()
-			}
+// keepTheme switches to t for good, remembering it for the next run.
+func (m *Model) keepTheme(t theme.Theme) {
+	m.theme = t
+	m.themeChosen = true
+	if m.prefs != nil {
+		if err := m.prefs.SetTheme(t.Name); err != nil {
+			m.notice = err.Error()
 		}
-	case pickerCancel:
-		m.cancelPicker()
 	}
 }
 
-// cancelPicker closes the theme picker and goes back to the theme it
-// started on.
-func (m *Model) cancelPicker() {
-	m.theme = m.picker.original
-	m.picker = nil
+// statusBarRow is the screen row the status bar is drawn on.
+func (m Model) statusBarRow() int {
+	return m.height - statusBarHeight
 }
 
 // cycleSession switches to the session delta places away in the list,

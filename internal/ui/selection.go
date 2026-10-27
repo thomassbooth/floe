@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 
 	"github.com/thomassbooth/floe/internal/domain"
@@ -135,4 +138,90 @@ func (m Model) drawSelection(scr uv.Screen, w domain.WindowView) {
 			scr.SetCell(area.X+x, area.Y+y, c)
 		}
 	}
+}
+
+// click remembers a click, to spot double and triple clicks.
+type click struct {
+	at    time.Time
+	x, y  int
+	count int
+}
+
+// startSelection begins selecting at p in a window: a plain click starts
+// a drag, a double click takes the word there and a triple click the line.
+func (m *Model) startSelection(w domain.WindowView, p domain.Point) {
+	now := time.Now()
+	count := 1
+	if prev := m.lastClick; prev.x == p.X && prev.y == p.Y && now.Sub(prev.at) < multiClickWindow {
+		count = prev.count%3 + 1
+	}
+	m.lastClick = click{at: now, x: p.X, y: p.Y, count: count}
+
+	at := domain.Point{X: p.X - w.Content.X, Y: p.Y - w.Content.Y}
+	s := &selection{
+		window:   w.ID,
+		pane:     w.Pane,
+		content:  w.Content,
+		scroll:   m.scroll[w.Pane],
+		anchor:   at,
+		head:     at,
+		dragging: true,
+	}
+	if count > 1 {
+		if g, ok := m.backend.Grid(w.Pane, s.scroll); ok {
+			s.whole = true
+			if count == 2 {
+				from, to := wordAt(g, at.X, at.Y)
+				s.anchor.X, s.head.X = from, to
+			} else {
+				s.anchor.X, s.head.X = 0, lineEnd(g, at.Y)
+			}
+		}
+	}
+	m.selection = s
+}
+
+// extendTo moves the selection's free end to the screen cell p, kept
+// inside the window's content.
+func (s *selection) extendTo(p domain.Point) {
+	s.head = domain.Point{
+		X: min(max(p.X-s.content.X, 0), s.content.W-1),
+		Y: min(max(p.Y-s.content.Y, 0), s.content.H-1),
+	}
+}
+
+// finishSelection copies the selected text when the button is let go. The
+// highlight stays until the next click or key.
+func (m *Model) finishSelection() tea.Cmd {
+	s := m.selection
+	s.dragging = false
+	if s.empty() {
+		m.selection = nil
+		return nil
+	}
+	g, ok := m.backend.Grid(s.pane, s.scroll)
+	if !ok {
+		return nil
+	}
+	text := selectedText(g, *s)
+	if text == "" {
+		return nil
+	}
+	m.info = fmt.Sprintf("copied %d characters", utf8.RuneCountInString(text))
+	return tea.SetClipboard(text)
+}
+
+// dropStaleSelection forgets a selection whose window closed, moved, was
+// resized or was scrolled, since its cells no longer line up.
+func (m *Model) dropStaleSelection() {
+	s := m.selection
+	if s == nil {
+		return
+	}
+	for _, w := range m.snap.Windows {
+		if w.ID == s.window && w.Content == s.content && m.scroll[w.Pane] == s.scroll {
+			return
+		}
+	}
+	m.selection = nil
 }

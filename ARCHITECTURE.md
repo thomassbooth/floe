@@ -141,3 +141,14 @@ The UI only knows the `ui.Backend` port, and the service only knows its own
 clients. Putting `remote.Client` behind the port and `remote.Server` in front
 of the service moved the service into another process without changing
 either of them.
+
+## Where new things go
+
+| To add | Start in |
+|---|---|
+| A panel that takes the keyboard, such as a picker, a prompt or copy mode | `ui/overlay.go`: implement `overlay` and open it from `runAction` |
+| Something the mouse does | `ui/mouse.go`, which routes presses to `hittest.go`, `drag.go`, `selection.go` and `scroll.go` |
+| A key binding | `input/keymap.go`; its name then works in `keybinds.conf` |
+| A command or event between client and server | `domain/command.go` or `event.go`, then `protocol/register.go` |
+| A window rule, such as how windows snap | `domain/session_arrange.go`, or `session_focus.go` for focus and marks |
+| A field saved with a window | `domain.SavedWindow` and the file format in `infra/store`. The round-trip tests in both fail until they give the new field a value |

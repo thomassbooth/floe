@@ -1,12 +1,18 @@
 package ui
 
 import (
+	"strings"
 	"unicode"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/thomassbooth/floe/internal/domain"
 )
 
-// prompt is a one-line text input shown in the status bar.
+// prompt is a one-line text input shown in place of the status bar.
 type prompt struct {
 	label  string
 	text   []rune
@@ -17,9 +23,7 @@ func newPrompt(label, initial string, submit func(string) domain.Command) *promp
 	return &prompt{label: label, text: []rune(initial), submit: submit}
 }
 
-// handle reacts to a key. It returns a command to send, if any, and whether
-// the prompt should close.
-func (p *prompt) handle(k domain.Key) (domain.Command, bool) {
+func (p *prompt) key(_ *Model, k domain.Key) (domain.Command, bool) {
 	switch {
 	case k.Code == domain.KeyEnter:
 		return p.submit(string(p.text)), true
@@ -39,4 +43,29 @@ func (p *prompt) handle(k domain.Key) (domain.Command, bool) {
 		}
 	}
 	return nil, false
+}
+
+// press leaves the prompt open, so windows can still be clicked, but
+// swallows clicks on the status bar, which the prompt covers.
+func (p *prompt) press(m *Model, at domain.Point) (bool, bool) {
+	return false, at.Y != m.statusBarRow()
+}
+
+// draw puts the prompt over the status bar, with the cursor after the text.
+func (p *prompt) draw(m Model, scr uv.Screen) (*tea.Cursor, bool) {
+	t := m.theme
+	width := m.width
+	bar := lipgloss.NewStyle().Background(t.BarBg).Foreground(t.BarFg)
+	badge := lipgloss.NewStyle().Background(t.Accent).Foreground(t.BadgeFg).Bold(true).Padding(0, 1)
+
+	label := badge.Render(p.label) + bar.Render(" ")
+	text := string(p.text)
+	hint := bar.Foreground(t.BarDim).Render("enter save · esc cancel ")
+	cursor := lipgloss.Width(label) + lipgloss.Width(text)
+
+	gap := max(width-lipgloss.Width(label)-lipgloss.Width(text)-lipgloss.Width(hint), 1)
+	line := ansi.Truncate(label+bar.Render(text+strings.Repeat(" ", gap))+hint, width, "")
+	row := m.statusBarRow()
+	uv.NewStyledString(line).Draw(scr, uv.Rect(0, row, width, statusBarHeight))
+	return tea.NewCursor(min(cursor, width-1), row), true
 }
