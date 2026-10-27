@@ -279,3 +279,30 @@ func TestClipboardTextRefusesReadsAndJunk(t *testing.T) {
 		t.Fatalf("got %q, %v", text, ok)
 	}
 }
+
+func TestHostKeepsPaletteColorsAsPaletteColors(t *testing.T) {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 60, H: 10}, ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { h.Kill(1) })
+
+	h.Paste(1, "printf '\\033[31mR\\033[38;5;200mI\\033[38;2;10;20;30mT\\033[0mD\\n'\r")
+	g := waitForText(t, h, 1, "RITD")
+	text := gridText(g)
+	i := strings.Index(text, "RITD")
+	y := strings.Count(text[:i], "\n")
+	x := i - (strings.LastIndex(text[:i], "\n") + 1)
+
+	want := []domain.Color{
+		domain.BasicColor(1),
+		domain.IndexedColor(200),
+		domain.RGBColor(10, 20, 30),
+		{},
+	}
+	for n, c := range want {
+		if got := g.At(x+n, y).Style.Fg; got != c {
+			t.Errorf("cell %d fg = %+v, want %+v", n, got, c)
+		}
+	}
+}

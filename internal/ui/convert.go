@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"image/color"
 	"unicode"
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
 )
@@ -104,9 +106,9 @@ func toUVCell(c domain.Cell) uv.Cell {
 		Content: c.Content,
 		Width:   c.Width,
 		Style: uv.Style{
-			Fg:             c.Style.Fg,
-			Bg:             c.Style.Bg,
-			UnderlineColor: c.Style.UnderlineColor,
+			Fg:             toColor(c.Style.Fg),
+			Bg:             toColor(c.Style.Bg),
+			UnderlineColor: toColor(c.Style.UnderlineColor),
 			Underline:      underlines[c.Style.Underline],
 		},
 	}
@@ -116,4 +118,19 @@ func toUVCell(c domain.Cell) uv.Cell {
 		}
 	}
 	return out
+}
+
+// toColor turns a cell color back into one the terminal draws the same way
+// the program meant it: palette colors stay palette colors.
+func toColor(c domain.Color) color.Color {
+	switch c.Kind {
+	case domain.ColorBasic:
+		return ansi.BasicColor(c.Value)
+	case domain.ColorIndexed:
+		return ansi.IndexedColor(c.Value)
+	case domain.ColorRGB:
+		r, g, b := c.RGB()
+		return color.RGBA{R: r, G: g, B: b, A: 0xff}
+	}
+	return nil
 }

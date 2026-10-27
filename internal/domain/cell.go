@@ -1,7 +1,5 @@
 package domain
 
-import "image/color"
-
 // Attr is a set of text attributes.
 type Attr uint8
 
@@ -27,11 +25,10 @@ const (
 	UnderlineDashed
 )
 
-// Style describes how a cell is drawn. A nil color means the terminal
-// default.
+// Style describes how a cell is drawn.
 type Style struct {
-	Fg, Bg         color.Color
-	UnderlineColor color.Color
+	Fg, Bg         Color
+	UnderlineColor Color
 	Underline      Underline
 	Attrs          Attr
 }

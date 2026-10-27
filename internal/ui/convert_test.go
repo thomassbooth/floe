@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"image/color"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
 )
@@ -32,5 +34,22 @@ func TestToDomainKey(t *testing.T) {
 				t.Fatalf("got %#v, %v; want %#v, %v", got, ok, tt.want, tt.ok)
 			}
 		})
+	}
+}
+
+func TestToColorKeepsPaletteColors(t *testing.T) {
+	tests := []struct {
+		in   domain.Color
+		want color.Color
+	}{
+		{domain.Color{}, nil},
+		{domain.BasicColor(9), ansi.BasicColor(9)},
+		{domain.IndexedColor(200), ansi.IndexedColor(200)},
+		{domain.RGBColor(10, 20, 30), color.RGBA{R: 10, G: 20, B: 30, A: 0xff}},
+	}
+	for _, tt := range tests {
+		if got := toColor(tt.in); got != tt.want {
+			t.Errorf("toColor(%+v) = %#v, want %#v", tt.in, got, tt.want)
+		}
 	}
 }

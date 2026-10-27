@@ -1,7 +1,10 @@
 package terminal
 
 import (
+	"image/color"
+
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
@@ -109,9 +112,9 @@ func fromVTCell(c *uv.Cell) domain.Cell {
 		Content: c.Content,
 		Width:   c.Width,
 		Style: domain.Style{
-			Fg:             c.Style.Fg,
-			Bg:             c.Style.Bg,
-			UnderlineColor: c.Style.UnderlineColor,
+			Fg:             fromColor(c.Style.Fg),
+			Bg:             fromColor(c.Style.Bg),
+			UnderlineColor: fromColor(c.Style.UnderlineColor),
 			Underline:      underlines[c.Style.Underline],
 		},
 	}
@@ -121,4 +124,24 @@ func fromVTCell(c *uv.Cell) domain.Cell {
 		}
 	}
 	return out
+}
+
+// fromColor keeps palette colors as palette colors, so the terminal mux runs
+// in still draws them from its own theme.
+func fromColor(c color.Color) domain.Color {
+	switch c := c.(type) {
+	case nil:
+		return domain.Color{}
+	case ansi.BasicColor:
+		return domain.BasicColor(uint8(c))
+	case ansi.IndexedColor:
+		return domain.IndexedColor(uint8(c))
+	}
+	r, g, b, a := c.RGBA()
+	if a == 0 {
+		return domain.Color{}
+	}
+	// RGBA is premultiplied; undo that for the rare translucent color.
+	r, g, b = r*0xffff/a, g*0xffff/a, b*0xffff/a
+	return domain.RGBColor(uint8(r>>8), uint8(g>>8), uint8(b>>8))
 }
