@@ -30,6 +30,7 @@ func (m Model) render() (string, *tea.Cursor) {
 			continue
 		}
 		drawGrid(canvas, w.Content, grid)
+		m.drawSelection(canvas, w)
 		m.drawScrollMarker(canvas, w)
 		if w.Focused {
 			cursor = gridCursor(w.Content, grid)
@@ -240,6 +241,8 @@ func (m Model) statusBar(width int) (line string, bounds toggleBounds) {
 	switch {
 	case m.notice != "":
 		right = bar.Foreground(t.Error).Render("✗ " + m.notice + " ")
+	case m.info != "":
+		right = bar.Foreground(t.Accent).Render("✓ " + m.info + " ")
 	case m.keys.Mode() == input.Prefix:
 		// The full list is in the which-key popup.
 		right = badge.Render("PREFIX") + dim.Render(" esc cancel ")

@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"fmt"
+	"time"
+	"unicode/utf8"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
@@ -111,6 +115,7 @@ func (m Model) targetAt(x, y int) (target, bool) {
 
 func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	mouse := msg.Mouse()
+	m.selection, m.info = nil, ""
 	if m.switcher != nil {
 		m.switcher = nil
 		return
@@ -136,6 +141,12 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 		return
 	}
 	if mouse.Button != tea.MouseLeft {
+		return
+	}
+	if t.part == partContent && !m.arranging() {
+		m.keys.Reset()
+		m.backend.Apply(domain.FocusWindow{ID: id})
+		m.startSelection(t.window, mouse.X, mouse.Y)
 		return
 	}
 	m.keys.Reset()
@@ -222,6 +233,13 @@ func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
 		m.forward(m.capture, domain.MouseMove, mouse)
 		return
 	}
+	if s := m.selection; s != nil && s.dragging {
+		s.head = domain.Point{
+			X: min(max(mouse.X-s.content.X, 0), s.content.W-1),
+			Y: min(max(mouse.Y-s.content.Y, 0), s.content.H-1),
+		}
+		return
+	}
 	if m.drag == nil {
 		return
 	}
@@ -254,23 +272,104 @@ func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {
 	}
 }
 
-// mouseRelease ends a drag, snapping the window if it was dropped on a
-// zone.
-func (m *Model) mouseRelease(msg tea.MouseReleaseMsg) {
+// mouseRelease ends whatever the press started: a program's mouse capture,
+// a text selection, which is copied, or a window drag, which may snap.
+func (m *Model) mouseRelease(msg tea.MouseReleaseMsg) tea.Cmd {
 	if c := m.capture; c != nil {
 		m.capture = nil
 		m.forward(c, domain.MouseRelease, msg.Mouse())
-		return
+		return nil
+	}
+	if s := m.selection; s != nil && s.dragging {
+		return m.finishSelection()
 	}
 	d := m.drag
 	m.drag = nil
 	if d == nil || !d.move || !d.moved {
-		return
+		return nil
 	}
 	mouse := msg.Mouse()
 	if zone := domain.ZoneAt(domain.Point{X: mouse.X, Y: mouse.Y}, m.snap.Area); zone != domain.ZoneNone {
 		m.backend.Apply(domain.SnapWindow{ID: d.window, Zone: zone})
 	}
+	return nil
+}
+
+// click remembers a click, to spot double and triple clicks.
+type click struct {
+	at    time.Time
+	x, y  int
+	count int
+}
+
+// startSelection begins selecting at x, y in a window: a plain click starts
+// a drag, a double click takes the word there and a triple click the line.
+func (m *Model) startSelection(w domain.WindowView, x, y int) {
+	now := time.Now()
+	count := 1
+	if prev := m.lastClick; prev.x == x && prev.y == y && now.Sub(prev.at) < multiClickWindow {
+		count = prev.count%3 + 1
+	}
+	m.lastClick = click{at: now, x: x, y: y, count: count}
+
+	p := domain.Point{X: x - w.Content.X, Y: y - w.Content.Y}
+	s := &selection{
+		window:   w.ID,
+		pane:     w.Pane,
+		content:  w.Content,
+		scroll:   m.scroll[w.Pane],
+		anchor:   p,
+		head:     p,
+		dragging: true,
+	}
+	if count > 1 {
+		if g, ok := m.backend.Grid(w.Pane, s.scroll); ok {
+			s.whole = true
+			if count == 2 {
+				from, to := wordAt(g, p.X, p.Y)
+				s.anchor.X, s.head.X = from, to
+			} else {
+				s.anchor.X, s.head.X = 0, lineEnd(g, p.Y)
+			}
+		}
+	}
+	m.selection = s
+}
+
+// finishSelection copies the selected text when the button is let go. The
+// highlight stays until the next click or key.
+func (m *Model) finishSelection() tea.Cmd {
+	s := m.selection
+	s.dragging = false
+	if s.empty() {
+		m.selection = nil
+		return nil
+	}
+	g, ok := m.backend.Grid(s.pane, s.scroll)
+	if !ok {
+		return nil
+	}
+	text := selectedText(g, *s)
+	if text == "" {
+		return nil
+	}
+	m.info = fmt.Sprintf("copied %d characters", utf8.RuneCountInString(text))
+	return tea.SetClipboard(text)
+}
+
+// dropStaleSelection forgets a selection whose window closed, moved, was
+// resized or was scrolled, since its cells no longer line up.
+func (m *Model) dropStaleSelection() {
+	s := m.selection
+	if s == nil {
+		return
+	}
+	for _, w := range m.snap.Windows {
+		if w.ID == s.window && w.Content == s.content && m.scroll[w.Pane] == s.scroll {
+			return
+		}
+	}
+	m.selection = nil
 }
 
 // wheelLines is how far one notch of the wheel scrolls.
@@ -324,6 +423,9 @@ func (m *Model) mouseWheel(msg tea.MouseWheelMsg) {
 }
 
 func (m *Model) setScroll(pane domain.PaneID, lines, history int) {
+	if s := m.selection; s != nil && s.pane == pane && m.scroll[pane] != lines {
+		m.selection = nil
+	}
 	if lines <= 0 {
 		delete(m.scroll, pane)
 		delete(m.seen, pane)

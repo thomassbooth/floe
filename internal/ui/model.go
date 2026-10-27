@@ -59,6 +59,12 @@ type Model struct {
 	// capture is the window whose program gets the mouse until the button
 	// that was pressed in it is let go.
 	capture *capture
+	// selection is the highlighted text, if any, and lastClick the click
+	// before, for spotting double and triple clicks.
+	selection *selection
+	lastClick click
+	// info is a passing message for the status bar, like "copied".
+	info string
 	// scroll is how many lines each pane is scrolled up into its history,
 	// and seen how long that history was when last checked, so new output
 	// can be kept from moving a scrolled view.
@@ -113,7 +119,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyPressMsg:
-		m.notice = ""
+		m.notice, m.info = "", ""
+		m.selection = nil
 		if k, ok := toDomainKey(tea.Key(msg)); ok {
 			m.handleKey(k)
 		}
@@ -128,7 +135,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mouseMotion(msg)
 
 	case tea.MouseReleaseMsg:
-		m.mouseRelease(msg)
+		return m, m.mouseRelease(msg)
 
 	case tea.MouseWheelMsg:
 		m.mouseWheel(msg)
@@ -137,6 +144,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch ev := msg.event.(type) {
 		case domain.LayoutChanged:
 			m.snap = ev.Snapshot
+			m.dropStaleSelection()
 		case domain.SessionsChanged:
 			m.sessions = ev
 		case domain.ClipboardSet:

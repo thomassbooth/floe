@@ -25,6 +25,16 @@ var (
 	tokyoBl = color.RGBA{R: 0x7A, G: 0xA2, B: 0xF7, A: 0xFF} // Tokyo Night
 )
 
+// bgAt returns the background color of the cell at x, y.
+func (tm *term) bgAt(x, y int) color.Color {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	if c := tm.emu.CellAt(x, y); c != nil {
+		return c.Style.Bg
+	}
+	return nil
+}
+
 // rowHasBackground reports whether any cell on row y has background c.
 func (tm *term) rowHasBackground(y int, c color.Color) bool {
 	tm.mu.Lock()
