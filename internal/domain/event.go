@@ -26,7 +26,10 @@ type ClipboardSet struct {
 	Text string
 }
 
-// CommandFailed reports a command that could not be carried out.
+// CommandFailed reports a command that could not be carried out, when the
+// client sent it without asking for its result. It also reports problems
+// on the server that no command caused, such as a session failing to
+// start; Command is nil then.
 type CommandFailed struct {
 	Command Command
 	Err     error

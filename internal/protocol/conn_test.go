@@ -129,6 +129,23 @@ func TestErrorsCrossAsText(t *testing.T) {
 	}
 }
 
+func TestCommandRequestsAndRepliesCross(t *testing.T) {
+	req := CommandRequest{ID: 7, Command: domain.RenameSession{Name: "work"}}
+	if got := roundTrip(t, req); !reflect.DeepEqual(got, req) {
+		t.Fatalf("got %#v, want %#v", got, req)
+	}
+
+	got := roundTrip(t, CommandReply{ID: 7, Result: domain.Result{Err: domain.ErrSessionExists}})
+	reply := got.(CommandReply)
+	if reply.ID != 7 || reply.Result.Err == nil || reply.Result.Err.Error() != domain.ErrSessionExists.Error() {
+		t.Fatalf("got %#v, want the error's text under ID 7", reply)
+	}
+
+	if got := roundTrip(t, CommandReply{ID: 8}).(CommandReply); got.Result.Err != nil {
+		t.Fatalf("a success should cross as no error, got %v", got.Result.Err)
+	}
+}
+
 func TestGridsAndStatesCross(t *testing.T) {
 	grid := domain.Grid{
 		Size: domain.Size{W: 3, H: 1},

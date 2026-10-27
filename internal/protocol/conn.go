@@ -68,9 +68,13 @@ type Error struct {
 
 func (e Error) Error() string { return e.Text }
 
-// portable replaces errors inside events with Error, since an error's own
-// type usually cannot be encoded.
+// portable replaces errors inside events and results with Error, since an
+// error's own type usually cannot be encoded.
 func portable(m Message) Message {
+	if r, ok := m.(CommandReply); ok {
+		r.Result.Err = portableErr(r.Result.Err)
+		return r
+	}
 	ev, ok := m.(Event)
 	if !ok {
 		return m

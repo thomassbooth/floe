@@ -8,7 +8,7 @@ import "github.com/thomassbooth/floe/internal/domain"
 
 // Version is the version of the messages below. A client and server only
 // talk when theirs match.
-const Version = 1
+const Version = 2
 
 // Message is anything sent over a connection.
 type Message interface {
@@ -30,9 +30,24 @@ type Welcome struct {
 	Release string
 }
 
-// Apply carries a command from a client.
+// Apply carries a command from a client that does not wait for its result.
+// If it fails, an Event carrying CommandFailed says so.
 type Apply struct {
 	Command domain.Command
+}
+
+// CommandRequest carries a command from a client that waits for its
+// result. It keeps its place among Apply messages. ID matches the reply to
+// the request.
+type CommandRequest struct {
+	ID      uint64
+	Command domain.Command
+}
+
+// CommandReply answers a CommandRequest.
+type CommandReply struct {
+	ID     uint64
+	Result domain.Result
 }
 
 // Event carries an event to a client.
@@ -71,12 +86,14 @@ type StateReply struct {
 	OK    bool
 }
 
-func (Hello) message()        {}
-func (Welcome) message()      {}
-func (Apply) message()        {}
-func (Event) message()        {}
-func (Changed) message()      {}
-func (GridRequest) message()  {}
-func (GridReply) message()    {}
-func (StateRequest) message() {}
-func (StateReply) message()   {}
+func (Hello) message()          {}
+func (Welcome) message()        {}
+func (Apply) message()          {}
+func (CommandRequest) message() {}
+func (CommandReply) message()   {}
+func (Event) message()          {}
+func (Changed) message()        {}
+func (GridRequest) message()    {}
+func (GridReply) message()      {}
+func (StateRequest) message()   {}
+func (StateReply) message()     {}

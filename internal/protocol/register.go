@@ -10,7 +10,8 @@ import (
 // with gob. The tests check these lists against the domain package.
 var (
 	messages = []Message{
-		Hello{}, Welcome{}, Apply{}, Event{}, Changed{},
+		Hello{}, Welcome{}, Apply{}, CommandRequest{}, CommandReply{},
+		Event{}, Changed{},
 		GridRequest{}, GridReply{}, StateRequest{}, StateReply{},
 	}
 	commands = []domain.Command{

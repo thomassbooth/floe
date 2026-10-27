@@ -19,6 +19,7 @@ import (
 // LocalClient is a client of the service in the server's process.
 type LocalClient interface {
 	Apply(domain.Command)
+	Request(domain.Command) <-chan domain.Result
 	Events() <-chan domain.Event
 	Changed() <-chan struct{}
 	Grid(id domain.PaneID, scroll int) (domain.Grid, bool)
@@ -160,6 +161,17 @@ func (s *Server) serve(conn *protocol.Conn, c net.Conn) {
 		switch m := m.(type) {
 		case protocol.Apply:
 			client.Apply(m.Command)
+		case protocol.CommandRequest:
+			// Queue it now, so it keeps its place among the commands, but
+			// wait for the result aside, so later commands are not held up.
+			reply := client.Request(m.Command)
+			wg.Go(func() {
+				select {
+				case r := <-reply:
+					_ = conn.Send(protocol.CommandReply{ID: m.ID, Result: r})
+				case <-done:
+				}
+			})
 		case protocol.GridRequest:
 			g, ok := client.Grid(m.Pane, m.Scroll)
 			err = conn.Send(protocol.GridReply{ID: m.ID, Grid: g, OK: ok})

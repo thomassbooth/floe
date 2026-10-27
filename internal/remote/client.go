@@ -85,9 +85,30 @@ func handshake(conn *protocol.Conn, build string) error {
 	return nil
 }
 
-// Apply queues a command for the server. It never blocks.
+// Apply queues a command for the server. It never blocks. If the command
+// fails, a CommandFailed event says so.
 func (c *Client) Apply(cmd domain.Command) {
 	c.out.Push(protocol.Apply{Command: cmd})
+}
+
+// Request queues a command like Apply, in order with the commands before
+// it, and returns a channel that receives its result once. A failure goes
+// only to the channel, not to the events, and a lost connection gives
+// ErrLostServer. It never blocks.
+func (c *Client) Request(cmd domain.Command) <-chan domain.Result {
+	result := make(chan domain.Result, 1)
+	req, reply := c.expect()
+	c.out.Push(protocol.CommandRequest{ID: req, Command: cmd})
+	go func() {
+		defer c.forget(req)
+		select {
+		case m := <-reply:
+			result <- m.(protocol.CommandReply).Result
+		case <-c.done:
+			result <- domain.Result{Err: ErrLostServer}
+		}
+	}()
+	return result
 }
 
 // Events receives everything the server tells this client. It is closed
@@ -136,18 +157,8 @@ func (c *Client) Close() {
 // ask sends the request made by build and waits for its reply. It returns
 // false if the connection ends first.
 func (c *Client) ask(build func(req uint64) protocol.Message) (protocol.Message, bool) {
-	reply := make(chan protocol.Message, 1)
-	c.mu.Lock()
-	c.nextID++
-	req := c.nextID
-	c.waiting[req] = reply
-	c.mu.Unlock()
-	defer func() {
-		c.mu.Lock()
-		delete(c.waiting, req)
-		c.mu.Unlock()
-	}()
-
+	req, reply := c.expect()
+	defer c.forget(req)
 	c.out.Push(build(req))
 	select {
 	case m := <-reply:
@@ -155,6 +166,23 @@ func (c *Client) ask(build func(req uint64) protocol.Message) (protocol.Message,
 	case <-c.done:
 		return nil, false
 	}
+}
+
+// expect numbers a new request and returns the channel its reply will come
+// on. Call forget once the reply is in or no longer wanted.
+func (c *Client) expect() (uint64, <-chan protocol.Message) {
+	reply := make(chan protocol.Message, 1)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.nextID++
+	c.waiting[c.nextID] = reply
+	return c.nextID, reply
+}
+
+func (c *Client) forget(req uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.waiting, req)
 }
 
 // answer hands a reply to whoever asked for it.
@@ -189,6 +217,8 @@ func (c *Client) read() {
 		case protocol.GridReply:
 			c.answer(m.ID, m)
 		case protocol.StateReply:
+			c.answer(m.ID, m)
+		case protocol.CommandReply:
 			c.answer(m.ID, m)
 		}
 	}

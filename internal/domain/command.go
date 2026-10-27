@@ -7,6 +7,12 @@ type Command interface {
 	command()
 }
 
+// Result is what came of a command, for a client that asked to hear.
+type Result struct {
+	// Err is set when the command could not be carried out.
+	Err error
+}
+
 // SetArea tells the server how much screen space the client has for
 // windows.
 type SetArea struct {

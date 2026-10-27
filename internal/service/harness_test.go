@@ -323,3 +323,15 @@ func eventually(t *testing.T, cond func() bool) {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+// result waits for the result of a command sent with Request.
+func result(t *testing.T, reply <-chan domain.Result) domain.Result {
+	t.Helper()
+	select {
+	case r := <-reply:
+		return r
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for a result")
+	}
+	return domain.Result{}
+}

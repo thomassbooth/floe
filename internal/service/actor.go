@@ -15,6 +15,10 @@ var (
 	// errNotAttached is returned for window commands from a client that is
 	// not viewing a session.
 	errNotAttached = errors.New("not attached to a session")
+	// errDisconnected answers a request from a client that has gone.
+	errDisconnected = errors.New("client is disconnected")
+	// errStopped answers requests still waiting when the service stops.
+	errStopped = errors.New("the floe server stopped")
 )
 
 type requestKind int
@@ -31,11 +35,14 @@ type request struct {
 	client domain.ClientID
 	handle *Client        // requestConnect
 	cmd    domain.Command // requestCommand
+	// reply, for a command sent with Request, receives its result.
+	reply chan<- domain.Result
 }
 
 // Run serves requests until the last session ends or ctx is cancelled. It is
 // the only goroutine that touches service state.
 func (s *Service) Run(ctx context.Context) error {
+	defer s.refuseWaiting()
 	s.persist.restore()
 	for !s.lifecycle.done() {
 		select {
@@ -84,10 +91,15 @@ func (s *Service) handle(req request) {
 		}
 	case requestCommand:
 		if !s.clients.connected(req.client) {
+			req.answer(errDisconnected)
 			return
 		}
 		s.server.Touch(req.client)
-		if err := s.apply(req.client, req.cmd); err != nil {
+		err := s.apply(req.client, req.cmd)
+		switch {
+		case req.reply != nil:
+			req.answer(err)
+		case err != nil:
 			s.clients.send(req.client, domain.CommandFailed{Command: req.cmd, Err: err})
 		}
 		// Any command makes this client the most recently active, which
@@ -95,6 +107,22 @@ func (s *Service) handle(req request) {
 		if sess, ok := s.clients.session(req.client); ok {
 			s.refreshArea(sess.ID())
 		}
+	}
+}
+
+// answer gives a requested command its result. Commands sent with Apply
+// have no one waiting.
+func (req request) answer(err error) {
+	if req.reply != nil {
+		req.reply <- domain.Result{Err: err}
+	}
+}
+
+// refuseWaiting closes the inbox when Run returns and answers the requests
+// still in it, so no client waits for a result forever.
+func (s *Service) refuseWaiting() {
+	for _, req := range s.inbox.Close() {
+		req.answer(errStopped)
 	}
 }
 

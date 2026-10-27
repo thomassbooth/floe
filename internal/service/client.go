@@ -30,9 +30,21 @@ func newClient(id domain.ClientID, svc *Service) *Client {
 // ID returns the client's ID.
 func (c *Client) ID() domain.ClientID { return c.id }
 
-// Apply queues a command from this client. It never blocks.
+// Apply queues a command from this client. It never blocks. If the command
+// fails, a CommandFailed event says so.
 func (c *Client) Apply(cmd domain.Command) {
 	c.svc.inbox.Push(request{kind: requestCommand, client: c.id, cmd: cmd})
+}
+
+// Request queues a command like Apply, in order with the commands before
+// it, and returns a channel that receives its result once. A failure goes
+// only to the channel, not to the events. It never blocks.
+func (c *Client) Request(cmd domain.Command) <-chan domain.Result {
+	reply := make(chan domain.Result, 1)
+	if !c.svc.inbox.Push(request{kind: requestCommand, client: c.id, cmd: cmd, reply: reply}) {
+		reply <- domain.Result{Err: errStopped}
+	}
+	return reply
 }
 
 // Events receives everything the server tells this client. It is closed

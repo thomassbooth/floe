@@ -16,6 +16,8 @@ import (
 // fakeLocal is a client of a pretend service.
 type fakeLocal struct {
 	applied chan domain.Command
+	// replies holds, for each Request, the channel to answer it on.
+	replies chan chan<- domain.Result
 	events  chan domain.Event
 	changed chan struct{}
 	closed  chan struct{}
@@ -26,13 +28,24 @@ type fakeLocal struct {
 func newFakeLocal() *fakeLocal {
 	return &fakeLocal{
 		applied: make(chan domain.Command, 64),
+		replies: make(chan chan<- domain.Result, 64),
 		events:  make(chan domain.Event, 64),
 		changed: make(chan struct{}, 1),
 		closed:  make(chan struct{}),
 	}
 }
 
-func (f *fakeLocal) Apply(cmd domain.Command)    { f.applied <- cmd }
+func (f *fakeLocal) Apply(cmd domain.Command) { f.applied <- cmd }
+
+// Request records the command among the applied ones and leaves the test
+// to answer it.
+func (f *fakeLocal) Request(cmd domain.Command) <-chan domain.Result {
+	reply := make(chan domain.Result, 1)
+	f.applied <- cmd
+	f.replies <- reply
+	return reply
+}
+
 func (f *fakeLocal) Events() <-chan domain.Event { return f.events }
 func (f *fakeLocal) Changed() <-chan struct{}    { return f.changed }
 func (f *fakeLocal) emit(ev domain.Event)        { f.events <- ev }
@@ -204,6 +217,41 @@ func TestClientTalksToTheServiceThroughTheServer(t *testing.T) {
 	st, ok := c.State(1)
 	if !ok || st.Scrollback != 42 || st.Mouse != domain.MouseReportClicks {
 		t.Fatalf("state = %#v, %v", st, ok)
+	}
+}
+
+func TestRequestsKeepTheirPlaceAndGetTheirResult(t *testing.T) {
+	r := newRig(t, "build-1")
+	c, f := r.attach()
+
+	c.Apply(domain.Tidy{})
+	result := c.Request(domain.RenameSession{Name: "work"})
+	c.Apply(domain.CycleFocus{Delta: 1})
+	// The commands arrive in order, and the one after the request is not
+	// held up while the request waits for its result.
+	for _, want := range []domain.Command{domain.Tidy{}, domain.RenameSession{Name: "work"}, domain.CycleFocus{Delta: 1}} {
+		if got := next(t, f.applied); got != want {
+			t.Fatalf("got %#v, want %#v", got, want)
+		}
+	}
+
+	next(t, f.replies) <- domain.Result{Err: domain.ErrSessionExists}
+	if got := next(t, result); got.Err == nil || got.Err.Error() != domain.ErrSessionExists.Error() {
+		t.Fatalf("result = %#v, want the error's text", got)
+	}
+}
+
+func TestRequestsGetAnAnswerWhenTheServerIsLost(t *testing.T) {
+	r := newRig(t, "build-1")
+	c, f := r.attach()
+	result := c.Request(domain.Tidy{})
+	next(t, f.replies) // the service has it, but never answers
+	r.stop()
+	if got := next(t, result); !errors.Is(got.Err, ErrLostServer) {
+		t.Fatalf("result = %#v, want ErrLostServer", got)
+	}
+	if got := next(t, c.Request(domain.Tidy{})); !errors.Is(got.Err, ErrLostServer) {
+		t.Fatalf("a request after the loss = %#v, want ErrLostServer", got)
 	}
 }
 

@@ -35,3 +35,18 @@ func TestUnboundedKeepsOrderAndCoalescesSignals(t *testing.T) {
 		t.Fatalf("expected empty queue, got %v", items)
 	}
 }
+
+func TestCloseHandsBackWhatIsLeftAndRefusesMore(t *testing.T) {
+	q := New[int]()
+	q.Push(1)
+	q.Push(2)
+	if got := q.Close(); !slices.Equal(got, []int{1, 2}) {
+		t.Fatalf("close returned %v, want [1 2]", got)
+	}
+	if q.Push(3) {
+		t.Fatal("a closed queue should refuse pushes")
+	}
+	if got := q.Drain(); len(got) != 0 {
+		t.Fatalf("nothing should be queued after close, got %v", got)
+	}
+}
