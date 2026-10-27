@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomasbooth/multiplexer/internal/infra/settings"
 	"github.com/thomasbooth/multiplexer/internal/infra/terminal"
 	"github.com/thomasbooth/multiplexer/internal/input"
 	"github.com/thomasbooth/multiplexer/internal/service"
@@ -22,6 +23,22 @@ func main() {
 		fmt.Fprintln(os.Stderr, "mux:", err)
 		os.Exit(1)
 	}
+}
+
+// openPreferences loads the settings file. If it cannot be read, mux still
+// starts, with nothing remembered, and leaves the file alone.
+func openPreferences() ui.Preferences {
+	path, err := settings.DefaultPath()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "mux: settings not available:", err)
+		return nil
+	}
+	f, err := settings.Open(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "mux: settings not available:", err)
+		return nil
+	}
+	return f
 }
 
 func run() error {
@@ -41,9 +58,11 @@ func run() error {
 	done := make(chan error, 1)
 	go func() { done <- svc.Run(ctx) }()
 
+	prefs := openPreferences()
+
 	client := svc.Connect()
 	client.Apply(domain.AttachSession{})
-	final, err := tea.NewProgram(ui.New(client, input.DefaultKeymap())).Run()
+	final, err := tea.NewProgram(ui.New(client, input.DefaultKeymap(), prefs)).Run()
 	client.Close()
 	cancel()
 	runErr := <-done

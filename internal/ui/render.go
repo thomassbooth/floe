@@ -45,6 +45,10 @@ func (m Model) render() (string, *tea.Cursor) {
 		m.switcher.draw(canvas, m.snap.Area, m.sessions, m.theme)
 		cursor = nil
 	}
+	if m.picker != nil {
+		m.picker.draw(canvas, m.snap.Area, m.theme)
+		cursor = nil
+	}
 	if m.keys.Mode() == input.Prefix {
 		m.drawWhichKey(canvas, m.snap.Area)
 	}

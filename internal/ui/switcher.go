@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomasbooth/multiplexer/internal/theme"
 )
 
 // switcher is the session list overlay.
@@ -54,7 +55,7 @@ func (s *switcher) clamp(n int) {
 const switcherHelp = "↑↓ select · enter switch · n new · x kill · esc close"
 
 // draw renders the switcher centered in area.
-func (s *switcher) draw(scr uv.Screen, area domain.Rect, list domain.SessionsChanged, t Theme) {
+func (s *switcher) draw(scr uv.Screen, area domain.Rect, list domain.SessionsChanged, t theme.Theme) {
 	s.clamp(len(list.Sessions))
 
 	nameWidth := 4

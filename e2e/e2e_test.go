@@ -53,16 +53,40 @@ func launch(t *testing.T, w, h int) *term {
 
 func launchShell(t *testing.T, w, h int, shell string) *term {
 	t.Helper()
+	return launchWith(t, options{w: w, h: h, shell: shell, config: t.TempDir()})
+}
+
+// options describes how to start mux.
+type options struct {
+	w, h  int
+	shell string
+	// config is used as XDG_CONFIG_HOME, so tests never touch the real
+	// settings file. Reusing a directory carries settings across runs.
+	config string
+	// background, when set, is the outer terminal's background color, as
+	// reported to mux when it asks.
+	background color.Color
+}
+
+func launchWith(t *testing.T, o options) *term {
+	t.Helper()
+	w, h, shell := o.w, o.h, o.shell
+	if shell == "" {
+		shell = "/bin/sh"
+	}
 	if testing.Short() {
 		t.Skip("e2e tests are slow")
 	}
 	cmd := exec.Command(binary)
-	cmd.Env = append(os.Environ(), "SHELL="+shell, "TERM=xterm-256color")
+	cmd.Env = append(os.Environ(), "SHELL="+shell, "TERM=xterm-256color", "XDG_CONFIG_HOME="+o.config)
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	tm := &term{t: t, cmd: cmd, pty: f, emu: vt.NewEmulator(w, h), done: make(chan struct{})}
+	if o.background != nil {
+		tm.emu.SetDefaultBackgroundColor(o.background)
+	}
 
 	go func() {
 		buf := make([]byte, 32*1024)

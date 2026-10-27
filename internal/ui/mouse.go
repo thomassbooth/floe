@@ -107,6 +107,10 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 		m.switcher = nil
 		return
 	}
+	if m.picker != nil {
+		m.cancelPicker()
+		return
+	}
 	if mouse.Y == m.height-statusBarHeight {
 		m.statusBarClick(mouse.X, mouse.Button)
 		return

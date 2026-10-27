@@ -29,6 +29,8 @@ const (
 	ActionNone Action = iota
 	// ActionArrange enters arrange mode, or leaves it from inside.
 	ActionArrange
+	// ActionThemePicker opens the list of themes.
+	ActionThemePicker
 	// ActionNewWindow opens a window in the middle of the terminal, half its
 	// width and height.
 	ActionNewWindow

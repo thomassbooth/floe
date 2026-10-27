@@ -10,6 +10,7 @@ import (
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
 	"github.com/thomasbooth/multiplexer/internal/input"
+	"github.com/thomasbooth/multiplexer/internal/theme"
 )
 
 // frameInterval caps how often pane output triggers a redraw.
@@ -37,7 +38,11 @@ type (
 type Model struct {
 	backend Backend
 	keys    *input.Machine
-	theme   Theme
+	prefs   Preferences
+	theme   theme.Theme
+	// themeChosen is set once a theme was picked, now or in an earlier run,
+	// so the terminal's background no longer decides it.
+	themeChosen bool
 
 	width, height int
 	snap          domain.Snapshot
@@ -46,6 +51,7 @@ type Model struct {
 
 	// Overlays that take the keyboard while open; nil when closed.
 	switcher *switcher
+	picker   *themePicker
 	prompt   *prompt
 	// drag is the window move or resize in progress, if any.
 	drag *drag
@@ -54,18 +60,28 @@ type Model struct {
 	Err error
 }
 
-// New returns a model that drives backend with the given keymap.
-func New(backend Backend, km input.Keymap) Model {
-	return Model{
+// New returns a model that drives backend with the given keymap. The theme
+// comes from prefs when one was saved; prefs may be nil.
+func New(backend Backend, km input.Keymap, prefs Preferences) Model {
+	m := Model{
 		backend: backend,
 		keys:    input.NewMachine(km),
-		theme:   DefaultTheme(),
+		prefs:   prefs,
+		theme:   theme.MustLookup(theme.Default),
 	}
+	if prefs != nil {
+		if name, ok := prefs.Theme(); ok {
+			if t, ok := theme.Lookup(name); ok {
+				m.theme, m.themeChosen = t, true
+			}
+		}
+	}
+	return m
 }
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.waitEvent, m.waitChanged)
+	return tea.Batch(m.waitEvent, m.waitChanged, tea.RequestBackgroundColor)
 }
 
 // Update implements tea.Model.
@@ -77,6 +93,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			W: msg.Width,
 			H: max(msg.Height-statusBarHeight, 0),
 		}})
+
+	case tea.BackgroundColorMsg:
+		// Until a theme is picked, match the terminal: light themes for
+		// light backgrounds.
+		if !m.themeChosen && !msg.IsDark() {
+			m.theme = theme.MustLookup(theme.DefaultLight)
+		}
 
 	case tea.KeyPressMsg:
 		m.notice = ""
@@ -138,6 +161,8 @@ func (m *Model) handleKey(k domain.Key) {
 		if cmd, done = m.switcher.handle(k, m.sessions.Sessions); done {
 			m.switcher = nil
 		}
+	case m.picker != nil:
+		m.handlePicker(k)
 	default:
 		res, ok := m.keys.Handle(k)
 		if !ok {
@@ -153,6 +178,8 @@ func (m *Model) handleKey(k domain.Key) {
 
 func (m *Model) runAction(a input.Action) {
 	switch a {
+	case input.ActionThemePicker:
+		m.picker = newThemePicker(m.theme)
 	case input.ActionNewWindow:
 		// Half the whole terminal, centered in it. The session only knows
 		// the area above the status bar, so the client works this out.
@@ -174,6 +201,33 @@ func (m *Model) runAction(a input.Action) {
 	case input.ActionNextSession:
 		m.cycleSession(1)
 	}
+}
+
+// handlePicker previews the theme the picker is on, and keeps or reverts
+// it when the picker closes.
+func (m *Model) handlePicker(k domain.Key) {
+	switch m.picker.handle(k) {
+	case pickerOpen:
+		m.theme = m.picker.current()
+	case pickerKeep:
+		m.theme = m.picker.current()
+		m.themeChosen = true
+		m.picker = nil
+		if m.prefs != nil {
+			if err := m.prefs.SetTheme(m.theme.Name); err != nil {
+				m.notice = err.Error()
+			}
+		}
+	case pickerCancel:
+		m.cancelPicker()
+	}
+}
+
+// cancelPicker closes the theme picker and goes back to the theme it
+// started on.
+func (m *Model) cancelPicker() {
+	m.theme = m.picker.original
+	m.picker = nil
 }
 
 // cycleSession switches to the session delta places away in the list,
