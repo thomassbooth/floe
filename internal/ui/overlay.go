@@ -24,14 +24,52 @@ type overlay interface {
 	draw(m Model, scr uv.Screen) (cursor *tea.Cursor, ok bool)
 }
 
+// awaiter is an overlay that hears how its commands went, such as a prompt
+// that stays open to show why a name was refused. Other overlays' failures
+// show in the status bar.
+type awaiter interface {
+	overlay
+	// result is given the result of a command the overlay sent while it is
+	// still open. It reports whether the overlay is done.
+	result(m *Model, r domain.Result) (done bool)
+}
+
+// resultMsg carries the result of a command an awaiter sent.
+type resultMsg struct {
+	from   awaiter
+	result domain.Result
+}
+
 // keyToOverlay passes a key to the open overlay, closing it when it is
-// done.
-func (m *Model) keyToOverlay(k domain.Key) domain.Command {
-	cmd, done := m.overlay.key(m, k)
+// done, and sends any command it gives. An awaiter that stays open waits
+// for its command's result.
+func (m *Model) keyToOverlay(k domain.Key) tea.Cmd {
+	o := m.overlay
+	cmd, done := o.key(m, k)
 	if done {
 		m.overlay = nil
 	}
-	return cmd
+	a, waits := o.(awaiter)
+	if cmd == nil || done || !waits {
+		m.apply(cmd)
+		return nil
+	}
+	reply := m.backend.Request(cmd)
+	return func() tea.Msg { return resultMsg{from: a, result: <-reply} }
+}
+
+// takeResult hands a result to the overlay that asked for it, if it is
+// still open, and otherwise shows a failure in the status bar.
+func (m *Model) takeResult(msg resultMsg) {
+	if m.overlay == overlay(msg.from) {
+		if msg.from.result(m, msg.result) {
+			m.overlay = nil
+		}
+		return
+	}
+	if msg.result.Err != nil {
+		m.notice = msg.result.Err.Error()
+	}
 }
 
 // pressOnOverlay tells the open overlay about a mouse press and reports

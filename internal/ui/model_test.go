@@ -13,13 +13,29 @@ import (
 )
 
 // fakeBackend records the commands the UI sends and answers state
-// questions from a map.
+// questions from a map. Requests are recorded with the applied commands,
+// and the test answers them with answer.
 type fakeBackend struct {
 	applied []domain.Command
 	states  map[domain.PaneID]domain.PaneState
+	replies []chan domain.Result
 }
 
-func (b *fakeBackend) Apply(c domain.Command)      { b.applied = append(b.applied, c) }
+func (b *fakeBackend) Apply(c domain.Command) { b.applied = append(b.applied, c) }
+
+func (b *fakeBackend) Request(c domain.Command) <-chan domain.Result {
+	b.applied = append(b.applied, c)
+	reply := make(chan domain.Result, 1)
+	b.replies = append(b.replies, reply)
+	return reply
+}
+
+// answer gives the oldest unanswered request its result.
+func (b *fakeBackend) answer(r domain.Result) {
+	b.replies[0] <- r
+	b.replies = b.replies[1:]
+}
+
 func (b *fakeBackend) Events() <-chan domain.Event { return nil }
 func (b *fakeBackend) Changed() <-chan struct{}    { return nil }
 func (b *fakeBackend) Grid(domain.PaneID, int) (domain.Grid, bool) {
@@ -51,6 +67,9 @@ type client struct {
 	t       *testing.T
 	m       Model
 	backend *fakeBackend
+	// waiting holds the work Update handed back, which Bubble Tea would
+	// run in the background.
+	waiting []tea.Cmd
 }
 
 func newClient(t *testing.T) *client {
@@ -72,8 +91,24 @@ func newClient(t *testing.T) *client {
 
 func (c *client) send(msg tea.Msg) {
 	c.t.Helper()
-	next, _ := c.m.Update(msg)
+	next, cmd := c.m.Update(msg)
 	c.m = next.(Model)
+	if cmd != nil {
+		c.waiting = append(c.waiting, cmd)
+	}
+}
+
+// settle runs the work Update handed back, as Bubble Tea would, and feeds
+// the messages it gives back into the model.
+func (c *client) settle() {
+	c.t.Helper()
+	for len(c.waiting) > 0 {
+		cmd := c.waiting[0]
+		c.waiting = c.waiting[1:]
+		if msg := cmd(); msg != nil {
+			c.send(msg)
+		}
+	}
 }
 
 func (c *client) press(x, y int, mod tea.KeyMod) {
@@ -285,8 +320,10 @@ func TestPromptCoversTheStatusBarButNotTheWindows(t *testing.T) {
 	if got := sent[domain.RenameSession](c.backend); len(got) != 1 || got[0].Name != "x" {
 		t.Fatalf("enter should rename to x, sent %v", c.backend.applied)
 	}
+	c.backend.answer(domain.Result{})
+	c.settle()
 	if c.m.overlay != nil {
-		t.Fatal("enter should close the prompt")
+		t.Fatal("the prompt should close once the rename goes through")
 	}
 }
 
@@ -296,5 +333,49 @@ func TestPromptDrawsOverTheStatusBarWithItsCursor(t *testing.T) {
 	_, cursor := c.m.render()
 	if cursor == nil || cursor.Y != 29 {
 		t.Fatalf("the cursor should be in the prompt on row 29, got %+v", cursor)
+	}
+}
+
+func TestPromptStaysOpenWithTheReasonWhenRefused(t *testing.T) {
+	c := newClient(t)
+	c.m.runAction(input.ActionRenameSession)
+	c.key(tea.Key{Code: 'u', Mod: tea.ModCtrl})
+	c.key(tea.Key{Code: '1', Text: "1"})
+	c.key(tea.Key{Code: tea.KeyEnter})
+	if got := sent[domain.RenameSession](c.backend); len(got) != 1 || got[0].Name != "1" {
+		t.Fatalf("enter should ask to rename to 1, sent %v", c.backend.applied)
+	}
+
+	c.backend.answer(domain.Result{Err: domain.ErrSessionExists})
+	c.settle()
+	p, ok := c.m.overlay.(*prompt)
+	if !ok || p.err != domain.ErrSessionExists.Error() || string(p.text) != "1" {
+		t.Fatalf("the prompt should stay open with the name and the reason, got %#v", c.m.overlay)
+	}
+	if c.m.notice != "" {
+		t.Fatalf("the reason belongs in the prompt, not the status bar: %q", c.m.notice)
+	}
+
+	c.key(tea.Key{Code: 'x', Text: "x"})
+	if p.err != "" {
+		t.Fatal("typing should clear the reason")
+	}
+	c.key(tea.Key{Code: tea.KeyEnter})
+	c.backend.answer(domain.Result{})
+	c.settle()
+	if c.m.overlay != nil {
+		t.Fatal("the prompt should close once the rename goes through")
+	}
+}
+
+func TestResultAfterThePromptClosedShowsInTheStatusBar(t *testing.T) {
+	c := newClient(t)
+	c.m.runAction(input.ActionRenameSession)
+	c.key(tea.Key{Code: tea.KeyEnter})
+	c.key(tea.Key{Code: tea.KeyEscape})
+	c.backend.answer(domain.Result{Err: domain.ErrSessionExists})
+	c.settle()
+	if c.m.overlay != nil || c.m.notice != domain.ErrSessionExists.Error() {
+		t.Fatalf("a late failure should show as a notice, got overlay %v, notice %q", c.m.overlay, c.m.notice)
 	}
 }

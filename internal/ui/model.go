@@ -21,7 +21,12 @@ const statusBarHeight = 1
 
 // Backend is what the UI needs from a session.
 type Backend interface {
+	// Apply sends a command without waiting. A failure comes back as a
+	// CommandFailed event.
 	Apply(domain.Command)
+	// Request sends a command in order with those applied, and its result
+	// comes back on the channel instead of as an event.
+	Request(domain.Command) <-chan domain.Result
 	Events() <-chan domain.Event
 	Changed() <-chan struct{}
 	Grid(id domain.PaneID, scroll int) (domain.Grid, bool)
@@ -141,12 +146,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		m.notice, m.info = "", ""
 		m.selection = nil
+		var cmd tea.Cmd
 		if k, ok := toDomainKey(tea.Key(msg)); ok {
-			m.handleKey(k)
+			cmd = m.handleKey(k)
 		}
 		if m.DetachedFrom != "" {
 			return m, tea.Quit
 		}
+		return m, cmd
+
+	case resultMsg:
+		m.takeResult(msg)
 
 	case tea.PasteMsg:
 		m.backend.Apply(domain.Paste{Text: msg.Content})
@@ -200,22 +210,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKey routes a key to the open overlay, or else to the key machine.
-func (m *Model) handleKey(k domain.Key) {
-	var cmd domain.Command
+func (m *Model) handleKey(k domain.Key) tea.Cmd {
 	if m.overlay != nil {
-		cmd = m.keyToOverlay(k)
-	} else {
-		res, ok := m.keys.Handle(k)
-		if !ok {
-			return
-		}
-		cmd = res.Command
-		m.runAction(res.Action)
+		return m.keyToOverlay(k)
 	}
-	if cmd != nil {
-		m.backend.Apply(cmd)
-		m.unscrollOnInput(cmd)
+	res, ok := m.keys.Handle(k)
+	if !ok {
+		return nil
 	}
+	m.runAction(res.Action)
+	m.apply(res.Command)
+	return nil
+}
+
+// apply sends a command, if there is one, without waiting for it.
+func (m *Model) apply(cmd domain.Command) {
+	if cmd == nil {
+		return
+	}
+	m.backend.Apply(cmd)
+	m.unscrollOnInput(cmd)
 }
 
 func (m *Model) runAction(a input.Action) {

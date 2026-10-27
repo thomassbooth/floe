@@ -12,11 +12,15 @@ import (
 	"github.com/thomassbooth/floe/internal/domain"
 )
 
-// prompt is a one-line text input shown in place of the status bar.
+// prompt is a one-line text input shown in place of the status bar. It
+// stays open until its command succeeds, showing why if it fails, so a
+// refused name can be fixed rather than typed again.
 type prompt struct {
 	label  string
 	text   []rune
 	submit func(string) domain.Command
+	// err is why the last submit failed, until the text changes.
+	err string
 }
 
 func newPrompt(label, initial string, submit func(string) domain.Command) *prompt {
@@ -26,9 +30,13 @@ func newPrompt(label, initial string, submit func(string) domain.Command) *promp
 func (p *prompt) key(_ *Model, k domain.Key) (domain.Command, bool) {
 	switch {
 	case k.Code == domain.KeyEnter:
-		return p.submit(string(p.text)), true
+		cmd := p.submit(string(p.text))
+		return cmd, cmd == nil
 	case k.Code == domain.KeyEscape:
 		return nil, true
+	}
+	before := string(p.text)
+	switch {
 	case k.Code == domain.KeyBackspace:
 		if len(p.text) > 0 {
 			p.text = p.text[:len(p.text)-1]
@@ -42,7 +50,20 @@ func (p *prompt) key(_ *Model, k domain.Key) (domain.Command, bool) {
 			}
 		}
 	}
+	if string(p.text) != before {
+		p.err = ""
+	}
 	return nil, false
+}
+
+// result closes the prompt once its command went through, and otherwise
+// keeps it open with the reason.
+func (p *prompt) result(_ *Model, r domain.Result) bool {
+	if r.Err != nil {
+		p.err = r.Err.Error()
+		return false
+	}
+	return true
 }
 
 // press leaves the prompt open, so windows can still be clicked, but
@@ -61,6 +82,9 @@ func (p *prompt) draw(m Model, scr uv.Screen) (*tea.Cursor, bool) {
 	label := badge.Render(p.label) + bar.Render(" ")
 	text := string(p.text)
 	hint := bar.Foreground(t.BarDim).Render("enter save · esc cancel ")
+	if p.err != "" {
+		hint = bar.Foreground(t.Error).Render("✗ " + p.err + " ")
+	}
 	cursor := lipgloss.Width(label) + lipgloss.Width(text)
 
 	gap := max(width-lipgloss.Width(label)-lipgloss.Width(text)-lipgloss.Width(hint), 1)

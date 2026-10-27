@@ -101,6 +101,29 @@ func TestRenameSession(t *testing.T) {
 	}
 }
 
+func TestRenameToATakenNameKeepsThePromptOpen(t *testing.T) {
+	tm := launch(t, 100, 30)
+	tm.waitFor(" 1 sh ")
+	tm.prefix("C")
+	tm.waitBadge("2")
+
+	tm.prefix("$")
+	tm.waitFor("rename session")
+	tm.send("\x15") // ctrl+u clears the current name
+	tm.send("1\r")
+	tm.waitFor("session already exists")
+	if !strings.Contains(tm.screen(), "rename session  1") {
+		t.Fatalf("the prompt should stay open with the name typed:\n%s", tm.screen())
+	}
+
+	// Typing clears the error, and a free name goes through.
+	tm.send("x")
+	tm.waitUntil("error to clear", func(s string) bool { return !strings.Contains(s, "session already exists") })
+	tm.send("\r")
+	tm.waitBadge("1x")
+	tm.waitUntil("prompt to close", func(s string) bool { return !strings.Contains(s, "rename session") })
+}
+
 func TestKillingCurrentSessionMovesToAnother(t *testing.T) {
 	tm := launch(t, 100, 30)
 	tm.waitFor(" 1 sh ")

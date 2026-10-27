@@ -150,5 +150,6 @@ either of them.
 | Something the mouse does | `ui/mouse.go`, which routes presses to `hittest.go`, `drag.go`, `selection.go` and `scroll.go` |
 | A key binding | `input/keymap.go`; its name then works in `keybinds.conf` |
 | A command or event between client and server | `domain/command.go` or `event.go`, then `protocol/register.go` |
+| A command whose sender needs to know how it went | Send it with `Request` rather than `Apply`: the result comes back on a channel instead of as a `CommandFailed` event. An overlay gets it by implementing `awaiter` |
 | A window rule, such as how windows snap | `domain/session_arrange.go`, or `session_focus.go` for focus and marks |
 | A field saved with a window | `domain.SavedWindow` and the file format in `infra/store`. The round-trip tests in both fail until they give the new field a value |
