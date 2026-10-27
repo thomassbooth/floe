@@ -151,3 +151,62 @@ func TestServerAreaFollowsMostRecentlyActiveClient(t *testing.T) {
 		t.Fatalf("after client 1 leaves, got %+v", got)
 	}
 }
+
+func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
+	s := NewServer()
+	work := mustCreate(t, s, "work")
+	work.SetArea(screen)
+	work.OpenWindow("vim", Right, s.NewPaneID())
+	work.OpenWindow("sh", Right, s.NewPaneID())
+	work.Snap(2, ZoneRight)
+	work.Focus(1)
+	other := mustCreate(t, s, "other")
+	other.SetArea(Rect{W: 100, H: 30})
+	other.OpenWindow("sh", Right, s.NewPaneID())
+
+	saved := s.Save()
+	if len(saved) != 2 || saved[0].Name != "work" || len(saved[0].Windows) != 2 {
+		t.Fatalf("saved = %+v", saved)
+	}
+
+	fresh := NewServer()
+	for _, ss := range saved {
+		if _, err := fresh.RestoreSession(ss); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, ok := fresh.SessionByName("work")
+	if !ok {
+		t.Fatal("work was not restored")
+	}
+	before, after := work.Snapshot(), got.Snapshot()
+	if before.Area != after.Area || before.Focused != after.Focused || len(before.Windows) != len(after.Windows) {
+		t.Fatalf("before %+v\nafter  %+v", before, after)
+	}
+	for i := range before.Windows {
+		b, a := before.Windows[i], after.Windows[i]
+		if b.ID != a.ID || b.Title != a.Title || b.Frame != a.Frame || b.Restore != a.Restore || b.Focused != a.Focused {
+			t.Errorf("window %d: before %+v, after %+v", i, b, a)
+		}
+	}
+	// Restored windows get new panes, never ones shown elsewhere.
+	if a, b := after.Windows[0].Pane, after.Windows[1].Pane; a == b || a == 0 {
+		t.Fatalf("panes %d and %d", a, b)
+	}
+	if _, err := fresh.RestoreSession(saved[0]); err == nil {
+		t.Fatal("a name already in use cannot be restored twice")
+	}
+	// New windows continue the numbering.
+	w, _ := got.OpenWindow("sh", Down, fresh.NewPaneID())
+	if w.ID != 3 {
+		t.Fatalf("next window = %d, want 3", w.ID)
+	}
+
+	bad := SavedSession{Name: "bad", Windows: []SavedWindow{{ID: 1}, {ID: 1}}}
+	if _, err := fresh.RestoreSession(bad); err == nil {
+		t.Fatal("duplicate window numbers should be refused")
+	}
+	if _, ok := fresh.SessionByName("bad"); ok {
+		t.Fatal("a refused session must not be left behind")
+	}
+}

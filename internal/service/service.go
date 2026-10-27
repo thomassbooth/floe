@@ -21,6 +21,8 @@ type Options struct {
 	Title string
 	// Now tells the time; time.Now when nil. Tests set it to control time.
 	Now func() time.Time
+	// Store keeps sessions between runs; nil keeps nothing.
+	Store SessionStore
 }
 
 // Service is the entry point to the service layer.
@@ -34,6 +36,7 @@ type Service struct {
 	clients   *clientService
 	sessions  *sessionService
 	lifecycle *lifecycleService
+	persist   *persistenceService
 	windows   *windowService
 	focus     *focusService
 	layout    *layoutService
@@ -60,6 +63,7 @@ func New(host PaneHost, opts Options) *Service {
 		clients:   newClientService(server),
 		sessions:  sessions,
 		lifecycle: newLifecycleService(server, sessions),
+		persist:   newPersistenceService(opts.Store, host, server, sessions, layout),
 		windows:   windows,
 		focus:     newFocusService(),
 		layout:    layout,

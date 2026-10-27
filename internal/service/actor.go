@@ -36,12 +36,17 @@ type request struct {
 // Run serves requests until the last session ends or ctx is cancelled. It is
 // the only goroutine that touches service state.
 func (s *Service) Run(ctx context.Context) error {
+	s.persist.restore()
 	for !s.lifecycle.done() {
 		select {
 		case <-ctx.Done():
+			// Save before the shells stop, so their directories are known.
+			s.persist.final()
 			s.sessions.killAll()
 			s.clients.detachAll(nil)
 			return ctx.Err()
+		case <-s.persist.due():
+			s.persist.save()
 		case <-s.inbox.Ready():
 			for _, req := range s.inbox.Drain() {
 				s.handle(req)
@@ -55,6 +60,8 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 		s.publish()
 	}
+	// Every session was ended on purpose: save that, so none come back.
+	s.persist.final()
 	s.clients.detachAll(nil)
 	return nil
 }
@@ -63,6 +70,9 @@ func (s *Service) handle(req request) {
 	switch req.kind {
 	case requestConnect:
 		s.clients.connect(req.handle)
+		if err := s.persist.takeErr(); err != nil {
+			s.clients.send(req.client, domain.CommandFailed{Err: err})
+		}
 	case requestDisconnect:
 		if old := s.clients.detach(req.client, nil); old != 0 {
 			s.listChanged = true
@@ -334,6 +344,7 @@ func (s *Service) publish() {
 	if len(s.dirty) == 0 && !s.listChanged {
 		return
 	}
+	s.persist.changed()
 	// The session list goes first so clients never draw a layout next to a
 	// stale list.
 	s.clients.broadcastSessions()

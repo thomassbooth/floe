@@ -56,16 +56,17 @@ func launch(t *testing.T, w, h int) *term {
 
 func launchShell(t *testing.T, w, h int, shell string) *term {
 	t.Helper()
-	return launchWith(t, options{w: w, h: h, shell: shell, config: t.TempDir()})
+	return launchWith(t, options{w: w, h: h, shell: shell, config: t.TempDir(), state: t.TempDir()})
 }
 
 // options describes how to start mux.
 type options struct {
 	w, h  int
 	shell string
-	// config is used as XDG_CONFIG_HOME, so tests never touch the real
-	// settings file. Reusing a directory carries settings across runs.
-	config string
+	// config and state are used as XDG_CONFIG_HOME and XDG_STATE_HOME, so
+	// tests never touch the real settings or saved sessions. Reusing a
+	// directory carries them across runs.
+	config, state string
 	// background, when set, is the outer terminal's background color, as
 	// reported to mux when it asks.
 	background color.Color
@@ -77,11 +78,17 @@ func launchWith(t *testing.T, o options) *term {
 	if shell == "" {
 		shell = "/bin/sh"
 	}
+	if o.config == "" {
+		o.config = t.TempDir()
+	}
+	if o.state == "" {
+		o.state = t.TempDir()
+	}
 	if testing.Short() {
 		t.Skip("e2e tests are slow")
 	}
 	cmd := exec.Command(binary)
-	cmd.Env = append(os.Environ(), "SHELL="+shell, "TERM=xterm-256color", "XDG_CONFIG_HOME="+o.config)
+	cmd.Env = append(os.Environ(), "SHELL="+shell, "TERM=xterm-256color", "XDG_CONFIG_HOME="+o.config, "XDG_STATE_HOME="+o.state)
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
 	if err != nil {
 		t.Fatal(err)

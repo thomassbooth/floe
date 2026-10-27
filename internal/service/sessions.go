@@ -97,5 +97,18 @@ func (s *sessionService) killAll() {
 	}
 }
 
+// restored records a session brought back from disk. One with windows has
+// started; one saved before its first window waits for an area like a new
+// session; one whose windows all failed to start is dropped.
+func (s *sessionService) restored(sess *domain.Session, hadWindows bool) {
+	s.anyCreated = true
+	switch {
+	case sess.Len() > 0:
+		s.started[sess.ID()] = true
+	case hadWindows:
+		s.remove(sess)
+	}
+}
+
 // created reports whether any session has ever existed.
 func (s *sessionService) created() bool { return s.anyCreated }

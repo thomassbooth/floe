@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/thomasbooth/multiplexer/internal/infra/atomicfile"
 )
 
 // File is a settings file on disk. Its methods are safe to call from any
@@ -84,23 +86,7 @@ func (f *File) save(d data) error {
 	if err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
-	dir := filepath.Dir(f.path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("save settings: %w", err)
-	}
-	tmp, err := os.CreateTemp(dir, ".settings-*.json")
-	if err != nil {
-		return fmt.Errorf("save settings: %w", err)
-	}
-	defer os.Remove(tmp.Name()) // no-op once renamed
-	if _, err := tmp.Write(append(raw, '\n')); err != nil {
-		tmp.Close()
-		return fmt.Errorf("save settings: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("save settings: %w", err)
-	}
-	if err := os.Rename(tmp.Name(), f.path); err != nil {
+	if err := atomicfile.Write(f.path, append(raw, '\n'), 0o644); err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
 	return nil
