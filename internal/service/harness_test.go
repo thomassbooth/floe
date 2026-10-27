@@ -106,9 +106,10 @@ func (h *fakeHost) Kill(id domain.PaneID) {
 	}
 }
 
-func (h *fakeHost) Grid(domain.PaneID) (domain.Grid, bool) { return domain.Grid{}, false }
-func (h *fakeHost) Exited() <-chan domain.PaneID           { return h.exited }
-func (h *fakeHost) Changed() <-chan struct{}               { return h.changed }
+func (h *fakeHost) Grid(domain.PaneID, int) (domain.Grid, bool)  { return domain.Grid{}, false }
+func (h *fakeHost) State(domain.PaneID) (domain.PaneState, bool) { return domain.PaneState{}, false }
+func (h *fakeHost) Exited() <-chan domain.PaneID                 { return h.exited }
+func (h *fakeHost) Changed() <-chan struct{}                     { return h.changed }
 
 func (h *fakeHost) TakeChanged() []domain.PaneID {
 	h.mu.Lock()

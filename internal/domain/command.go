@@ -119,9 +119,11 @@ type CloseWindow struct {
 	ID WindowID
 }
 
-// SendKey forwards a key press to the focused pane.
+// SendKey forwards a key press to a window's pane: the focused window when
+// Window is zero.
 type SendKey struct {
-	Key Key
+	Key    Key
+	Window WindowID
 }
 
 // Paste forwards pasted text to the focused pane.

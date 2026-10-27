@@ -24,7 +24,8 @@ type Backend interface {
 	Apply(domain.Command)
 	Events() <-chan domain.Event
 	Changed() <-chan struct{}
-	Grid(domain.PaneID) (domain.Grid, bool)
+	Grid(id domain.PaneID, scroll int) (domain.Grid, bool)
+	State(id domain.PaneID) (domain.PaneState, bool)
 }
 
 type (
@@ -55,6 +56,11 @@ type Model struct {
 	prompt   *prompt
 	// drag is the window move or resize in progress, if any.
 	drag *drag
+	// scroll is how many lines each pane is scrolled up into its history,
+	// and seen how long that history was when last checked, so new output
+	// can be kept from moving a scrolled view.
+	scroll map[domain.PaneID]int
+	seen   map[domain.PaneID]int
 
 	// Err is set when the client was detached because of a failure.
 	Err error
@@ -68,6 +74,8 @@ func New(backend Backend, km input.Keymap, prefs Preferences) Model {
 		keys:    input.NewMachine(km),
 		prefs:   prefs,
 		theme:   theme.MustLookup(theme.Default),
+		scroll:  make(map[domain.PaneID]int),
+		seen:    make(map[domain.PaneID]int),
 	}
 	if prefs != nil {
 		if name, ok := prefs.Theme(); ok {
@@ -119,6 +127,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseReleaseMsg:
 		m.mouseRelease(msg)
 
+	case tea.MouseWheelMsg:
+		m.mouseWheel(msg)
+
 	case eventMsg:
 		switch ev := msg.event.(type) {
 		case domain.LayoutChanged:
@@ -137,6 +148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case changedMsg:
+		m.holdScrolledViews()
 		// Redraw now, then wait a frame before listening again so a busy
 		// pane cannot redraw more than once per frame.
 		return m, tea.Tick(frameInterval, func(time.Time) tea.Msg { return rearmChangedMsg{} })
@@ -173,6 +185,7 @@ func (m *Model) handleKey(k domain.Key) {
 	}
 	if cmd != nil {
 		m.backend.Apply(cmd)
+		m.unscrollOnInput(cmd)
 	}
 }
 

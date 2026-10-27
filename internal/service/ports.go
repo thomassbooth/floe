@@ -15,8 +15,11 @@ type PaneHost interface {
 	Paste(id domain.PaneID, text string)
 	// Kill ends a pane's process. Its exit is still reported on Exited.
 	Kill(id domain.PaneID)
-	// Grid copies a pane's current screen.
-	Grid(id domain.PaneID) (domain.Grid, bool)
+	// Grid copies a pane's screen, scrolled scroll lines up into its
+	// history.
+	Grid(id domain.PaneID, scroll int) (domain.Grid, bool)
+	// State describes a pane's history and input modes.
+	State(id domain.PaneID) (domain.PaneState, bool)
 	// Exited receives the ID of every pane whose process ended.
 	Exited() <-chan domain.PaneID
 	// Changed receives a signal when any pane's screen changes. Signals

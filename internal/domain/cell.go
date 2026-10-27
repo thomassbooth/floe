@@ -45,6 +45,16 @@ type Cell struct {
 	Style   Style
 }
 
+// PaneState is what a client needs to know about a pane to scroll it and
+// route input to it.
+type PaneState struct {
+	// Scrollback is how many lines of history sit above the screen.
+	Scrollback int
+	// AltScreen is set while a full-screen program, such as an editor, is
+	// using the alternate screen, which has no history.
+	AltScreen bool
+}
+
 // Grid is a copy of a pane's visible screen.
 type Grid struct {
 	Size          Size

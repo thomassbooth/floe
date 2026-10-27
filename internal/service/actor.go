@@ -201,7 +201,7 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 			s.markDirty(sess.ID())
 		}
 	case domain.SendKey:
-		s.input.sendKey(sess, c.Key)
+		return s.input.sendKey(sess, c.Window, c.Key)
 	case domain.Paste:
 		s.input.paste(sess, c.Text)
 	default:

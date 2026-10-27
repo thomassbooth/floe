@@ -29,7 +29,7 @@ func waitForText(t *testing.T, h *Host, id domain.PaneID, want string) domain.Gr
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		g, ok := h.Grid(id)
+		g, ok := h.Grid(id, 0)
 		if ok && strings.Contains(gridText(g), want) {
 			return g
 		}
@@ -50,7 +50,7 @@ func waitExited(t *testing.T, h *Host, id domain.PaneID) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("pane did not exit")
 	}
-	if _, ok := h.Grid(id); ok {
+	if _, ok := h.Grid(id, 0); ok {
 		t.Fatal("exited pane should be forgotten")
 	}
 }
@@ -186,4 +186,31 @@ func TestHostTitleFollowsForegroundProgramAndShellTitle(t *testing.T) {
 	// A title set by the shell itself wins over the shell's name.
 	h.Paste(1, "printf '\\033]2;my title\\007'\r")
 	waitTitle("my title")
+}
+
+func TestHostScrollsIntoHistory(t *testing.T) {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 40, H: 5}, ""); err != nil {
+		t.Fatal(err)
+	}
+	h.Paste(1, "for i in $(seq 1 30); do echo line-$i; done\r")
+	waitForText(t, h, 1, "line-30")
+
+	st, _ := h.State(1)
+	if st.Scrollback < 25 || st.AltScreen {
+		t.Fatalf("state = %+v", st)
+	}
+	g, _ := h.Grid(1, 10)
+	text := gridText(g)
+	if !strings.Contains(text, "line-20") || strings.Contains(text, "line-30") {
+		t.Fatalf("scrolled 10 lines up:\n%s", text)
+	}
+	if g.CursorVisible {
+		t.Fatal("the cursor is hidden while scrolled up")
+	}
+	// Scrolling past the top stops at the oldest line: the command itself.
+	g, _ = h.Grid(1, 99999)
+	if first := strings.SplitN(gridText(g), "\n", 2)[0]; !strings.Contains(first, "for i in") {
+		t.Fatalf("the top row should be the first line printed, got %q", first)
+	}
 }

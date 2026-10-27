@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/vt"
 	"github.com/creack/pty"
 
@@ -23,6 +24,9 @@ import (
 // killGrace is how long a pane's process gets to exit after SIGHUP before it
 // is killed.
 const killGrace = 2 * time.Second
+
+// scrollbackLines is how much history each pane keeps.
+const scrollbackLines = 10_000
 
 // titleInterval is how often titles are checked for a new foreground
 // program, which the terminal gives no notice of.
@@ -114,6 +118,7 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 		input: queue.New[[]byte](),
 		done:  make(chan struct{}),
 	}
+	p.emu.SetScrollbackSize(scrollbackLines)
 	// Callbacks run inside emu.Write with p.mu held, so they only record
 	// and poke; they never take the host lock.
 	p.emu.SetCallbacks(vt.Callbacks{
@@ -178,13 +183,27 @@ func (h *Host) Kill(id domain.PaneID) {
 	}
 }
 
-// Grid copies a pane's current screen.
-func (h *Host) Grid(id domain.PaneID) (domain.Grid, bool) {
+// Grid copies a pane's screen, scrolled scroll lines up into its history.
+func (h *Host) Grid(id domain.PaneID, scroll int) (domain.Grid, bool) {
 	p, ok := h.pane(id)
 	if !ok {
 		return domain.Grid{}, false
 	}
-	return p.grid(), true
+	return p.grid(scroll), true
+}
+
+// State describes a pane's history and screen mode.
+func (h *Host) State(id domain.PaneID) (domain.PaneState, bool) {
+	p, ok := h.pane(id)
+	if !ok {
+		return domain.PaneState{}, false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return domain.PaneState{
+		Scrollback: p.emu.ScrollbackLen(),
+		AltScreen:  p.emu.IsAltScreen(),
+	}, true
 }
 
 // WorkingDir returns the directory a pane's shell is in: the one it last
@@ -397,21 +416,35 @@ func (p *pane) resize(size domain.Size) {
 	_ = pty.Setsize(p.pty, winsize(size))
 }
 
-func (p *pane) grid() domain.Grid {
+// grid copies the screen as seen scroll lines up into the history: the
+// newest history lines fill the top rows and the screen moves down to make
+// room. The cursor is only shown at the bottom, where it really is.
+func (p *pane) grid(scroll int) domain.Grid {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	w, h := p.emu.Width(), p.emu.Height()
+	history := p.emu.ScrollbackLen()
+	scroll = min(max(scroll, 0), history)
 	g := domain.Grid{
 		Size:          domain.Size{W: w, H: h},
 		Cells:         make([]domain.Cell, w*h),
-		CursorVisible: !p.emu.CursorHidden(),
+		CursorVisible: !p.emu.CursorHidden() && scroll == 0,
 	}
 	cur := p.emu.CursorPosition()
 	g.Cursor = domain.Point{X: cur.X, Y: cur.Y}
+
+	top := history - scroll // first row, counting history then screen
 	for y := range h {
+		line := top + y
 		for x := range w {
-			g.Cells[y*w+x] = fromVTCell(p.emu.CellAt(x, y))
+			var c *uv.Cell
+			if line < history {
+				c = p.emu.ScrollbackCellAt(x, line)
+			} else {
+				c = p.emu.CellAt(x, line-history)
+			}
+			g.Cells[y*w+x] = fromVTCell(c)
 		}
 	}
 	return g

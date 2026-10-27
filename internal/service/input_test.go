@@ -1,10 +1,29 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
 )
+
+func TestServiceSendsKeysToAChosenWindow(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right}) // window 2 focused
+	c.layoutUntil(windows(2))
+	c.apply(domain.SendKey{Key: domain.Key{Code: domain.KeyUp}, Window: 1})
+
+	eventually(t, func() bool {
+		h.host.mu.Lock()
+		defer h.host.mu.Unlock()
+		return len(h.host.keys[1]) == 1
+	})
+	c.apply(domain.SendKey{Key: domain.Key{Code: 'x'}, Window: 99})
+	if failed := c.failure(); !errors.Is(failed.Err, domain.ErrUnknownWindow) {
+		t.Fatalf("got %v", failed.Err)
+	}
+}
 
 func TestServiceRoutesInputToFocusedPane(t *testing.T) {
 	h := start(t, newFakeHost())

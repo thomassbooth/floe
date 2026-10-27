@@ -43,9 +43,14 @@ func (c *Client) Events() <-chan domain.Event { return c.events }
 // Signals coalesce.
 func (c *Client) Changed() <-chan struct{} { return c.changed }
 
-// Grid copies a pane's current screen.
-func (c *Client) Grid(id domain.PaneID) (domain.Grid, bool) {
-	return c.svc.host.Grid(id)
+// Grid copies a pane's screen, scrolled scroll lines up into its history.
+func (c *Client) Grid(id domain.PaneID, scroll int) (domain.Grid, bool) {
+	return c.svc.host.Grid(id, scroll)
+}
+
+// State describes a pane's history and input modes.
+func (c *Client) State(id domain.PaneID) (domain.PaneState, bool) {
+	return c.svc.host.State(id)
 }
 
 // Close disconnects the client. Its sessions keep running.

@@ -25,11 +25,12 @@ func (m Model) render() (string, *tea.Cursor) {
 	var cursor *tea.Cursor
 	for _, w := range m.snap.Windows {
 		m.drawFrame(canvas, w)
-		grid, ok := m.backend.Grid(w.Pane)
+		grid, ok := m.backend.Grid(w.Pane, m.scroll[w.Pane])
 		if !ok {
 			continue
 		}
 		drawGrid(canvas, w.Content, grid)
+		m.drawScrollMarker(canvas, w)
 		if w.Focused {
 			cursor = gridCursor(w.Content, grid)
 		}
@@ -146,6 +147,23 @@ func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 	title := ansi.Truncate(fmt.Sprintf(" %d %s ", w.ID, w.Title), room, "… ")
 	area := uv.Rect(f.X+2, f.Y, lipgloss.Width(title), 1)
 	uv.NewStyledString(titleStyle.Render(title)).Draw(scr, area)
+}
+
+// drawScrollMarker shows how far up a scrolled window is, on its bottom
+// border.
+func (m Model) drawScrollMarker(scr uv.Screen, w domain.WindowView) {
+	lines := m.scroll[w.Pane]
+	if lines == 0 || w.Frame.H < 2 {
+		return
+	}
+	label := fmt.Sprintf(" ↑ %d ", lines)
+	width := lipgloss.Width(label)
+	if w.Frame.W < width+4 {
+		return
+	}
+	style := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+	area := uv.Rect(w.Frame.Right()-2-width, w.Frame.Bottom()-1, width, 1)
+	uv.NewStyledString(style.Render(label)).Draw(scr, area)
 }
 
 // drawZone outlines where a dragged window will snap, over everything
