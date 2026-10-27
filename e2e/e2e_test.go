@@ -100,15 +100,22 @@ func launchWith(t *testing.T, o options) *term {
 	if testing.Short() {
 		t.Skip("e2e tests are slow")
 	}
-	env := append(os.Environ(),
+	// Describe the outer terminal as what the tests emulate, a true color
+	// xterm, whatever terminal the tests themselves run in. The tests may
+	// also run inside floe.
+	env := slices.DeleteFunc(os.Environ(), func(v string) bool {
+		name, _, _ := strings.Cut(v, "=")
+		return name == "FLOE" || name == "COLORTERM" || name == "NO_COLOR" ||
+			strings.HasPrefix(name, "TERM") || strings.HasPrefix(name, "CLICOLOR")
+	})
+	env = append(env,
 		"SHELL="+shell,
 		"TERM=xterm-256color",
+		"COLORTERM=truecolor",
 		"XDG_CONFIG_HOME="+o.config,
 		"XDG_STATE_HOME="+o.state,
 		"XDG_RUNTIME_DIR="+o.runtime,
 	)
-	// The tests may themselves run inside floe.
-	env = slices.DeleteFunc(env, func(v string) bool { return strings.HasPrefix(v, "FLOE=") })
 	if o.binary == "" {
 		o.binary = binary
 	}

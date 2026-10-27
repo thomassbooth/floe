@@ -6,14 +6,14 @@ import (
 )
 
 // mouseApp starts a program in window 1 that turns on mouse reporting
-// (button and drag events, SGR encoding) and prints what it receives. The
-// window's title turning to "cat" means the program is running with its
-// mouse mode on.
+// (button and drag events, SGR encoding) and prints what it receives, from
+// the top of a cleared window. The window's title turning to "cat" means
+// the program is running with its mouse mode on.
 func mouseApp(t *testing.T) *term {
 	tm := launch(t, 80, 24)
 	tm.waitFor(" 1 sh ")
 	tm.waitPrompts(1)
-	tm.typeLine(`printf '\033[?1002h\033[?1006h'; stty raw -echo; cat -v`)
+	tm.typeLine(`clear; printf '\033[?1002h\033[?1006h'; stty raw -echo; cat -v`)
 	tm.waitFor("╭─ 1 cat ")
 	return tm
 }
@@ -22,7 +22,7 @@ func mouseApp(t *testing.T) *term {
 // and line wrapping taken out.
 func (tm *term) appOutput() string {
 	var b strings.Builder
-	for _, l := range tm.lines()[2:22] { // content rows below the command line
+	for _, l := range tm.lines()[1:22] { // the window's content rows
 		b.WriteString(strings.TrimRight(strings.Trim(l, "│"), " "))
 	}
 	return b.String()
