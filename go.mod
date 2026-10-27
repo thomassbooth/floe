@@ -2,6 +2,9 @@ module github.com/thomassbooth/floe
 
 go 1.26.8
 
+// Early releases, since replaced; use v0.3.0 or later.
+retract [v0.1.0, v0.2.0]
+
 require (
 	charm.land/bubbletea/v2 v2.1.0
 	charm.land/lipgloss/v2 v2.0.6
