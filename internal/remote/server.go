@@ -1,7 +1,7 @@
 // Package remote carries the service to clients in other processes. The
 // server side bridges each connection to a client of the service running in
 // its own process; the client side stands in for the service in the UI's
-// process. Both speak the mux protocol.
+// process. Both speak the floe protocol.
 package remote
 
 import (
@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/protocol"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/protocol"
 )
 
 // LocalClient is a client of the service in the server's process.
@@ -224,5 +224,5 @@ func forwardChanges(conn *protocol.Conn, client LocalClient, done <-chan struct{
 }
 
 // ErrOtherBuild is why a server refuses a client from a different build of
-// mux.
-var ErrOtherBuild = errors.New("the mux server is running a different build")
+// floe.
+var ErrOtherBuild = errors.New("the floe server is running a different build")

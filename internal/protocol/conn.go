@@ -7,7 +7,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // Conn sends and receives messages over a byte stream. Send is safe to call

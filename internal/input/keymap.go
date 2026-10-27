@@ -1,6 +1,6 @@
 package input
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import "github.com/thomassbooth/floe/internal/domain"
 
 // resizeStep is how many cells one resize key press moves a divider.
 const resizeStep = 2

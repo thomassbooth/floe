@@ -11,16 +11,16 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/thomasbooth/multiplexer/internal/infra/socket"
-	"github.com/thomasbooth/multiplexer/internal/infra/store"
-	"github.com/thomasbooth/multiplexer/internal/infra/terminal"
-	"github.com/thomasbooth/multiplexer/internal/remote"
-	"github.com/thomasbooth/multiplexer/internal/service"
+	"github.com/thomassbooth/floe/internal/infra/socket"
+	"github.com/thomassbooth/floe/internal/infra/store"
+	"github.com/thomassbooth/floe/internal/infra/terminal"
+	"github.com/thomassbooth/floe/internal/remote"
+	"github.com/thomassbooth/floe/internal/service"
 )
 
-// insideEnv is set in every pane to the server's socket, so mux can tell it
+// insideEnv is set in every pane to the server's socket, so floe can tell it
 // is being run inside itself.
-const insideEnv = "MUX"
+const insideEnv = "FLOE"
 
 // runServer is the background server: it runs the sessions and serves
 // clients until the last session ends or it is told to stop.
@@ -46,7 +46,7 @@ func runServer(args []string) error {
 	}
 
 	// Everything printed goes to the server log; main prints the error.
-	log.SetPrefix(fmt.Sprintf("mux server %d: ", os.Getpid()))
+	log.SetPrefix(fmt.Sprintf("floe server %d: ", os.Getpid()))
 	err := serve(ready)
 	if err != nil {
 		ready(err.Error())

@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 func TestToDomainKey(t *testing.T) {

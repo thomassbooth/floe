@@ -63,7 +63,7 @@ func (tm *term) leaveArrange() {
 	tm.waitUntil("arrange mode to end", func(s string) bool { return !strings.Contains(s, "ARRANGE") })
 }
 
-// twoWindows starts mux at 100x30 with window 1 on the left half and
+// twoWindows starts floe at 100x30 with window 1 on the left half and
 // window 2 on the right half, focused.
 func twoWindows(t *testing.T) *term {
 	tm := launch(t, 100, 30)

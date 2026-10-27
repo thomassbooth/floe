@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // sessionService creates, finds, renames and ends sessions, and opens each

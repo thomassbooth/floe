@@ -20,8 +20,8 @@ import (
 	"github.com/charmbracelet/x/vt"
 	"github.com/creack/pty"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/queue"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/queue"
 )
 
 // killGrace is how long a pane's process gets to exit after SIGHUP before it
@@ -99,7 +99,7 @@ func (h *Host) Close() {
 	}
 }
 
-// Spawn starts a shell for a pane in directory dir, or in mux's own
+// Spawn starts a shell for a pane in directory dir, or in floe's own
 // directory when dir is empty or no longer exists.
 func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 	size = clampSize(size)
@@ -276,7 +276,7 @@ func (h *Host) Notices() <-chan struct{} { return h.notices.Ready() }
 func (h *Host) TakeNotices() []domain.PaneNotice { return h.notices.Drain() }
 
 // clipboardText decodes an OSC 52 "set clipboard" sequence, "52;c;<base64>".
-// Requests to read the clipboard ("?") are refused: programs in mux must
+// Requests to read the clipboard ("?") are refused: programs in floe must
 // not see what was copied elsewhere.
 func clipboardText(data []byte) (string, bool) {
 	parts := bytes.SplitN(data, []byte{';'}, 3)

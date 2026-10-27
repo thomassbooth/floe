@@ -8,9 +8,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/input"
-	"github.com/thomasbooth/multiplexer/internal/theme"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/input"
+	"github.com/thomassbooth/floe/internal/theme"
 )
 
 // frameInterval caps how often pane output triggers a redraw.
@@ -299,7 +299,7 @@ func (m Model) View() tea.View {
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
-	v.WindowTitle = "mux"
+	v.WindowTitle = "floe"
 	v.Cursor = cursor
 	return v
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// centeredWindow starts mux at 100x30, opens window 2 in the middle (50x15
+// centeredWindow starts floe at 100x30, opens window 2 in the middle (50x15
 // at (25, 7)) and turns on arrange mode.
 func centeredWindow(t *testing.T) *term {
 	tm := centeredWindowNormal(t)

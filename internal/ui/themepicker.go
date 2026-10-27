@@ -8,8 +8,8 @@ import (
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/theme"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/theme"
 )
 
 // themePicker is the theme list overlay. Moving through it previews each

@@ -3,7 +3,7 @@
 // pressed, and the key after the prefix picks a binding.
 package input
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import "github.com/thomassbooth/floe/internal/domain"
 
 // Mode is the state of the input machine.
 type Mode int

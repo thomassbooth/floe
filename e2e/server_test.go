@@ -16,19 +16,19 @@ func TestADifferentBuildIsToldToReplaceTheServer(t *testing.T) {
 	tm := launchWith(t, options{w: 100, h: 30, runtime: runtime})
 	tm.waitPrompts(1)
 
-	// A rebuilt mux: same program, different bytes.
+	// A rebuilt floe: same program, different bytes.
 	raw, err := os.ReadFile(binary)
 	if err != nil {
 		t.Fatal(err)
 	}
-	other := filepath.Join(t.TempDir(), "mux")
+	other := filepath.Join(t.TempDir(), "floe")
 	if err := os.WriteFile(other, append(raw, 0), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command(other)
 	cmd.Env = tm.env
 	out, err := cmd.CombinedOutput()
-	if err == nil || !strings.Contains(string(out), `different build of mux`) || !strings.Contains(string(out), `mux kill-server`) {
+	if err == nil || !strings.Contains(string(out), `different build of floe`) || !strings.Contains(string(out), `floe kill-server`) {
 		t.Fatalf("got %v: %s", err, out)
 	}
 	// The running server and its client are untouched.
@@ -40,7 +40,7 @@ func TestMuxRefusesToRunInsideItself(t *testing.T) {
 	tm := launch(t, 100, 30)
 	tm.waitPrompts(1)
 	tm.typeLine(binary + "; echo exit=$?")
-	tm.waitFor("already inside mux")
+	tm.waitFor("already inside floe")
 	tm.waitFor("exit=1")
 }
 
@@ -52,7 +52,7 @@ func TestACrashedServerIsReplaced(t *testing.T) {
 	tm.waitFor(" 2 sh ")
 	waitSaved(t, state, 2)
 
-	raw, err := os.ReadFile(filepath.Join(runtime, "mux", "default.lock"))
+	raw, err := os.ReadFile(filepath.Join(runtime, "floe", "default.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +63,9 @@ func TestACrashedServerIsReplaced(t *testing.T) {
 	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
 		t.Fatal(err)
 	}
-	tm.waitFor("lost the connection to the mux server")
+	tm.waitFor("lost the connection to the floe server")
 	tm.waitExit()
-	if _, err := os.Stat(filepath.Join(runtime, "mux", "default.sock")); err != nil {
+	if _, err := os.Stat(filepath.Join(runtime, "floe", "default.sock")); err != nil {
 		t.Fatalf("expected the crashed server's socket to be left behind: %v", err)
 	}
 
@@ -79,7 +79,7 @@ func waitSaved(t *testing.T, state string, n int) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		raw, _ := os.ReadFile(filepath.Join(state, "mux", "sessions.json"))
+		raw, _ := os.ReadFile(filepath.Join(state, "floe", "sessions.json"))
 		if strings.Count(string(raw), `"id":`) == n {
 			return
 		}

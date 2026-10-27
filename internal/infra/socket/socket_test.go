@@ -13,7 +13,7 @@ import (
 // short on macOS, so it avoids the long t.TempDir.
 func socketPath(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "mux")
+	dir, err := os.MkdirTemp("", "floe")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,11 +97,11 @@ func TestRefusesADirectoryOthersCanEnter(t *testing.T) {
 
 func TestDefaultPathFollowsXDGRuntimeDir(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", "/run/user/7")
-	if got := DefaultPath(); got != "/run/user/7/mux/default.sock" {
+	if got := DefaultPath(); got != "/run/user/7/floe/default.sock" {
 		t.Fatalf("path = %s", got)
 	}
 	t.Setenv("XDG_RUNTIME_DIR", "")
-	want := filepath.Join(os.TempDir(), fmt.Sprintf("mux-%d", os.Getuid()), "default.sock")
+	want := filepath.Join(os.TempDir(), fmt.Sprintf("floe-%d", os.Getuid()), "default.sock")
 	if got := DefaultPath(); got != want {
 		t.Fatalf("path = %s, want %s", got, want)
 	}

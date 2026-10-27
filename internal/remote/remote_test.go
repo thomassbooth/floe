@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // fakeLocal is a client of a pretend service.
@@ -81,7 +81,7 @@ type rig struct {
 func newRig(t *testing.T, build string, opts ...func(*Server)) *rig {
 	t.Helper()
 	// Socket paths are short on macOS, so avoid the long t.TempDir.
-	dir, err := os.MkdirTemp("", "mux")
+	dir, err := os.MkdirTemp("", "floe")
 	if err != nil {
 		t.Fatal(err)
 	}

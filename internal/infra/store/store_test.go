@@ -6,11 +6,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 func TestSaveAndLoadRoundTrip(t *testing.T) {
-	f := New(filepath.Join(t.TempDir(), "mux", "sessions.json"))
+	f := New(filepath.Join(t.TempDir(), "floe", "sessions.json"))
 	if got, err := f.Load(); err != nil || got != nil {
 		t.Fatalf("a missing file is no sessions: %v, %v", got, err)
 	}
@@ -53,7 +53,7 @@ func TestLoadRejectsUnknownVersionsAndJunk(t *testing.T) {
 
 func TestDefaultPathHonorsXDGStateHome(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "/tmp/state")
-	if got, _ := DefaultPath(); got != "/tmp/state/mux/sessions.json" {
+	if got, _ := DefaultPath(); got != "/tmp/state/floe/sessions.json" {
 		t.Fatalf("got %q", got)
 	}
 }

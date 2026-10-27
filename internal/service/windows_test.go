@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 func TestServiceClosesWindowWhenPaneExits(t *testing.T) {

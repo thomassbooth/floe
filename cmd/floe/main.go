@@ -1,6 +1,6 @@
-// Command mux is a terminal multiplexer.
+// Command floe is a terminal multiplexer.
 //
-// Running mux attaches to the mux server, starting it first if needed. The
+// Running floe attaches to the floe server, starting it first if needed. The
 // server runs in the background and owns the sessions and the programs in
 // them, so they keep running when the terminal closes.
 package main
@@ -10,9 +10,9 @@ import (
 	"os"
 )
 
-const usage = `usage: mux [command]
+const usage = `usage: floe [command]
 
-With no command, attach to the mux server, starting it if needed.
+With no command, attach to the floe server, starting it if needed.
 
 Commands:
   kill-server   stop the server and every program in it; layouts are kept
@@ -21,7 +21,7 @@ Commands:
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "mux:", err)
+		fmt.Fprintln(os.Stderr, "floe:", err)
 		os.Exit(1)
 	}
 }

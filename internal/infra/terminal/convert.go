@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 var specialKeys = map[rune]rune{
@@ -126,7 +126,7 @@ func fromVTCell(c *uv.Cell) domain.Cell {
 	return out
 }
 
-// fromColor keeps palette colors as palette colors, so the terminal mux runs
+// fromColor keeps palette colors as palette colors, so the terminal floe runs
 // in still draws them from its own theme.
 func fromColor(c color.Color) domain.Color {
 	switch c := c.(type) {

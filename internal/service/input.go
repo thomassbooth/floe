@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // inputService delivers keyboard and mouse input to a session's panes.

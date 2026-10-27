@@ -3,7 +3,7 @@ package input
 import (
 	"testing"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 var prefix = domain.Key{Code: 'b', Mod: domain.ModCtrl}

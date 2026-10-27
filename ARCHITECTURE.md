@@ -1,6 +1,6 @@
 # Architecture
 
-mux is two processes. The **server** runs in the background and owns every
+floe is two processes. The **server** runs in the background and owns every
 session, window and program. The **client** is what you run in a terminal: it
 draws what the server sends and passes on your keys and mouse. Closing the
 terminal only ends the client, so programs keep running.
@@ -11,7 +11,7 @@ terminal only ends the client, so programs keep running.
 flowchart LR
     you(["You: keys and mouse"])
 
-    subgraph client["mux - client process, one per terminal"]
+    subgraph client["floe - client process, one per terminal"]
         direction TB
         ui["<b>ui</b><br/>Bubble Tea: draws windows,<br/>status bar, overlays"]
         input["<b>input</b><br/>prefix key, arrange mode"]
@@ -24,7 +24,7 @@ flowchart LR
         ui -- "ui.Backend port" --> rclient
     end
 
-    subgraph server["mux server - background process, outlives the terminal"]
+    subgraph server["floe server - background process, outlives the terminal"]
         direction TB
         rserver["<b>remote.Server</b><br/>one service client per connection"]
         service["<b>service</b><br/>actor: applies commands,<br/>publishes events"]
@@ -51,7 +51,7 @@ import breaks this.
 ```mermaid
 flowchart TB
     subgraph root["Composition root"]
-        cmd["<b>cmd/mux</b><br/>builds and connects everything"]
+        cmd["<b>cmd/floe</b><br/>builds and connects everything"]
     end
 
     subgraph adaptersIn["Adapters in: drive the service"]
@@ -104,7 +104,7 @@ flowchart TB
 | Adapters in | `ui`, `remote` | Drive the service: the terminal UI, and the socket bridge |
 | Adapters out | `terminal`, `store`, `settings`, `socket` | Implement ports with the OS: PTYs, files, sockets |
 | Helpers | `protocol`, `input`, `theme`, `queue` | Pure building blocks |
-| Root | `cmd/mux` | `mux` runs the client, `mux server` the server |
+| Root | `cmd/floe` | `floe` runs the client, `floe server` the server |
 
 ## A key press, end to end
 

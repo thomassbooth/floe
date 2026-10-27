@@ -1,4 +1,4 @@
-// Package e2e runs the real mux binary in a pseudo-terminal and checks what
+// Package e2e runs the real floe binary in a pseudo-terminal and checks what
 // a user would see on screen.
 package e2e
 
@@ -23,12 +23,12 @@ import (
 var binary string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "mux-e2e")
+	dir, err := os.MkdirTemp("", "floe-e2e")
 	if err != nil {
 		panic(err)
 	}
-	binary = filepath.Join(dir, "mux")
-	build := exec.Command("go", "build", "-o", binary, "../cmd/mux")
+	binary = filepath.Join(dir, "floe")
+	build := exec.Command("go", "build", "-o", binary, "../cmd/floe")
 	build.Stdout, build.Stderr = os.Stdout, os.Stderr
 	if err := build.Run(); err != nil {
 		panic(err)
@@ -38,17 +38,17 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// term is an outer terminal running mux.
+// term is an outer terminal running floe.
 type term struct {
 	t   *testing.T
 	cmd *exec.Cmd
 	pty *os.File
-	// env is mux's environment, which also finds its server.
+	// env is floe's environment, which also finds its server.
 	env  []string
 	mu   sync.Mutex
 	emu  *vt.Emulator
 	done chan struct{}
-	// clipboard is what mux last copied to the outer terminal's clipboard.
+	// clipboard is what floe last copied to the outer terminal's clipboard.
 	clipboard string
 }
 
@@ -62,7 +62,7 @@ func launchShell(t *testing.T, w, h int, shell string) *term {
 	return launchWith(t, options{w: w, h: h, shell: shell})
 }
 
-// options describes how to start mux.
+// options describes how to start floe.
 type options struct {
 	w, h  int
 	shell string
@@ -74,11 +74,11 @@ type options struct {
 	// Each test gets its own server; reusing a directory attaches to the
 	// same one.
 	runtime string
-	// binary, when set, is the mux binary to run instead of the one built
+	// binary, when set, is the floe binary to run instead of the one built
 	// for the tests.
 	binary string
 	// background, when set, is the outer terminal's background color, as
-	// reported to mux when it asks.
+	// reported to floe when it asks.
 	background color.Color
 }
 
@@ -107,8 +107,8 @@ func launchWith(t *testing.T, o options) *term {
 		"XDG_STATE_HOME="+o.state,
 		"XDG_RUNTIME_DIR="+o.runtime,
 	)
-	// The tests may themselves run inside mux.
-	env = slices.DeleteFunc(env, func(v string) bool { return strings.HasPrefix(v, "MUX=") })
+	// The tests may themselves run inside floe.
+	env = slices.DeleteFunc(env, func(v string) bool { return strings.HasPrefix(v, "FLOE=") })
 	if o.binary == "" {
 		o.binary = binary
 	}
@@ -122,7 +122,7 @@ func launchWith(t *testing.T, o options) *term {
 	if o.background != nil {
 		tm.emu.SetDefaultBackgroundColor(o.background)
 	}
-	// Play the outer terminal's clipboard: keep what mux copies with OSC 52.
+	// Play the outer terminal's clipboard: keep what floe copies with OSC 52.
 	tm.emu.RegisterOscHandler(52, func(data []byte) bool {
 		parts := strings.SplitN(string(data), ";", 3)
 		if len(parts) == 3 {
@@ -179,7 +179,7 @@ func runtimeDir(t *testing.T) string {
 	return dir
 }
 
-// killServer runs "mux kill-server" for this terminal's server.
+// killServer runs "floe kill-server" for this terminal's server.
 func (tm *term) killServer() {
 	tm.t.Helper()
 	cmd := exec.Command(binary, "kill-server")
@@ -290,7 +290,7 @@ func (tm *term) waitExit() {
 	select {
 	case <-tm.done:
 	case <-time.After(10 * time.Second):
-		tm.t.Fatalf("mux did not exit. Screen:\n%s", tm.screen())
+		tm.t.Fatalf("floe did not exit. Screen:\n%s", tm.screen())
 	}
 }
 

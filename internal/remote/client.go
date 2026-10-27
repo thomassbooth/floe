@@ -7,14 +7,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/protocol"
-	"github.com/thomasbooth/multiplexer/internal/queue"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/protocol"
+	"github.com/thomassbooth/floe/internal/queue"
 )
 
 // ErrLostServer is why a client is detached when its connection to the
 // server breaks.
-var ErrLostServer = errors.New("lost the connection to the mux server")
+var ErrLostServer = errors.New("lost the connection to the floe server")
 
 // Client stands in for the service in the UI's process: it offers what the
 // UI needs, over a connection to the server. Its methods are safe to call
@@ -67,20 +67,20 @@ func Dial(rwc io.ReadWriteCloser, build string) (*Client, error) {
 
 func handshake(conn *protocol.Conn, build string) error {
 	if err := conn.Send(protocol.Hello{Version: protocol.Version, Build: build}); err != nil {
-		return fmt.Errorf("greet the mux server: %w", err)
+		return fmt.Errorf("greet the floe server: %w", err)
 	}
 	m, err := conn.Receive()
 	if err != nil {
-		return fmt.Errorf("greet the mux server: %w", err)
+		return fmt.Errorf("greet the floe server: %w", err)
 	}
 	welcome, ok := m.(protocol.Welcome)
 	switch {
 	case !ok:
-		return fmt.Errorf("greet the mux server: unexpected %T", m)
+		return fmt.Errorf("greet the floe server: unexpected %T", m)
 	case welcome.Err == ErrOtherBuild.Error():
 		return ErrOtherBuild
 	case welcome.Err != "":
-		return fmt.Errorf("the mux server refused: %s", welcome.Err)
+		return fmt.Errorf("the floe server refused: %s", welcome.Err)
 	}
 	return nil
 }

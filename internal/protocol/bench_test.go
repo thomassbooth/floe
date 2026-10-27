@@ -3,7 +3,7 @@ package protocol
 import (
 	"testing"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // BenchmarkGridRoundTrip measures a request and reply for a large,

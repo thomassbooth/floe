@@ -48,7 +48,7 @@ func TestClicksAndWheelReachMouseApps(t *testing.T) {
 	tm.wheel(20, 10, true)
 	tm.waitOutput("^[[<64;20;10M")
 	if strings.Contains(tm.screen(), "↑ ") {
-		t.Fatal("the wheel went to the app, not to mux's scrollback")
+		t.Fatal("the wheel went to the app, not to floe's scrollback")
 	}
 }
 

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // gridOf builds a grid from lines of text, padded to the widest line.

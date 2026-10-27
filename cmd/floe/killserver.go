@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/infra/socket"
+	"github.com/thomassbooth/floe/internal/infra/socket"
 )
 
 // stopTimeout is how long the server gets to save and stop.
@@ -21,7 +21,7 @@ func killServer() error {
 		return err
 	}
 	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-		return fmt.Errorf("stop the mux server: %w", err)
+		return fmt.Errorf("stop the floe server: %w", err)
 	}
 	deadline := time.Now().Add(stopTimeout)
 	for time.Now().Before(deadline) {
@@ -30,5 +30,5 @@ func killServer() error {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	return fmt.Errorf("the mux server (process %d) did not stop", pid)
+	return fmt.Errorf("the floe server (process %d) did not stop", pid)
 }

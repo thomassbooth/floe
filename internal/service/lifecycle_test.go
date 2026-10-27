@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 func TestServiceStartsFirstWindowOnceAreaIsKnown(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 func pipe(t testing.TB) (*Conn, *Conn) {

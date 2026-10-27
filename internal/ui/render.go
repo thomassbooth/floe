@@ -11,8 +11,8 @@ import (
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/input"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/input"
 )
 
 // render draws the whole screen and returns it with the cursor position.
@@ -334,7 +334,7 @@ func (m Model) statusTabs() []statusTab {
 
 func (m Model) sessionLabel() string {
 	if m.snap.Name == "" {
-		return "mux"
+		return "floe"
 	}
 	return m.snap.Name
 }

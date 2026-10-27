@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 func TestServiceMovesFocus(t *testing.T) {

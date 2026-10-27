@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // SessionStore keeps sessions between runs. The infrastructure layer

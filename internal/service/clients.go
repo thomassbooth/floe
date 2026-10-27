@@ -1,6 +1,6 @@
 package service
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import "github.com/thomassbooth/floe/internal/domain"
 
 // clientService tracks connected clients: which session each one views and
 // how to reach it.

@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/thomasbooth/multiplexer/internal/infra/atomicfile"
+	"github.com/thomassbooth/floe/internal/infra/atomicfile"
 )
 
 // File is a settings file on disk. Its methods are safe to call from any
@@ -28,17 +28,17 @@ type data struct {
 	Theme string `json:"theme,omitempty"`
 }
 
-// DefaultPath returns where settings live: $XDG_CONFIG_HOME/mux, or
-// ~/.config/mux, on every platform.
+// DefaultPath returns where settings live: $XDG_CONFIG_HOME/floe, or
+// ~/.config/floe, on every platform.
 func DefaultPath() (string, error) {
 	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
-		return filepath.Join(dir, "mux", "settings.json"), nil
+		return filepath.Join(dir, "floe", "settings.json"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("find settings: %w", err)
 	}
-	return filepath.Join(home, ".config", "mux", "settings.json"), nil
+	return filepath.Join(home, ".config", "floe", "settings.json"), nil
 }
 
 // Open loads the settings file at path. A missing file is fine: it is

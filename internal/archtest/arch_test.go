@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-const module = "github.com/thomasbooth/multiplexer"
+const module = "github.com/thomassbooth/floe"
 
 // rules lists, for each package, the project packages it may import and
 // whether it may import anything outside the standard library.
@@ -33,7 +33,7 @@ var rules = map[string]struct {
 	"internal/service":          {project: []string{"internal/domain", "internal/queue"}},
 	"internal/infra/terminal":   {project: []string{"internal/domain", "internal/queue"}, thirdParty: true},
 	"internal/ui":               {project: []string{"internal/domain", "internal/input", "internal/theme"}, thirdParty: true},
-	"cmd/mux":                   {project: []string{"internal/domain", "internal/infra/settings", "internal/infra/socket", "internal/infra/store", "internal/infra/terminal", "internal/input", "internal/remote", "internal/service", "internal/ui"}, thirdParty: true},
+	"cmd/floe":                  {project: []string{"internal/domain", "internal/infra/settings", "internal/infra/socket", "internal/infra/store", "internal/infra/terminal", "internal/input", "internal/remote", "internal/service", "internal/ui"}, thirdParty: true},
 	"internal/archtest":         {},
 }
 

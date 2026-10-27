@@ -2,7 +2,7 @@ package e2e
 
 import "testing"
 
-// copied returns what mux last put on the outer terminal's clipboard.
+// copied returns what floe last put on the outer terminal's clipboard.
 func (tm *term) copied() string {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()

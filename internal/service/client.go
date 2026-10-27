@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/queue"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/queue"
 )
 
 // Client is one connection to the service, such as a terminal showing a

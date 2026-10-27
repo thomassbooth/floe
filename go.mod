@@ -1,4 +1,4 @@
-module github.com/thomasbooth/multiplexer
+module github.com/thomassbooth/floe
 
 go 1.26.8
 

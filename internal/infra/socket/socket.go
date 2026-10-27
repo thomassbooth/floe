@@ -1,4 +1,4 @@
-// Package socket is where the mux server listens and how clients find it: a
+// Package socket is where the floe server listens and how clients find it: a
 // Unix socket in a directory only the user can enter, and a lock file the
 // server holds for as long as it runs.
 package socket
@@ -15,18 +15,18 @@ import (
 )
 
 // ErrRunning means another server already holds the lock.
-var ErrRunning = errors.New("a mux server is already running")
+var ErrRunning = errors.New("a floe server is already running")
 
 // ErrNotRunning means no server holds the lock.
-var ErrNotRunning = errors.New("no mux server is running")
+var ErrNotRunning = errors.New("no floe server is running")
 
-// DefaultPath returns the server's socket: in $XDG_RUNTIME_DIR/mux, or else
-// in mux-<uid> under the temporary directory.
+// DefaultPath returns the server's socket: in $XDG_RUNTIME_DIR/floe, or else
+// in floe-<uid> under the temporary directory.
 func DefaultPath() string {
 	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
-		return filepath.Join(dir, "mux", "default.sock")
+		return filepath.Join(dir, "floe", "default.sock")
 	}
-	return filepath.Join(os.TempDir(), fmt.Sprintf("mux-%d", os.Getuid()), "default.sock")
+	return filepath.Join(os.TempDir(), fmt.Sprintf("floe-%d", os.Getuid()), "default.sock")
 }
 
 // lockPath is the lock file that goes with the socket at path.

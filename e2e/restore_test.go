@@ -144,7 +144,7 @@ func waitServerGone(t *testing.T, env []string) {
 		cmd := exec.Command(binary, "kill-server")
 		cmd.Env = env
 		out, err := cmd.CombinedOutput()
-		if err != nil && strings.Contains(string(out), "no mux server is running") {
+		if err != nil && strings.Contains(string(out), "no floe server is running") {
 			return
 		}
 		if time.Now().After(deadline) {

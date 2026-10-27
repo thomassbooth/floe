@@ -1,10 +1,10 @@
-// Package protocol is how a mux client and the mux server talk: the
+// Package protocol is how a floe client and the floe server talk: the
 // messages they exchange over a connection and how those are encoded as
 // bytes. It knows nothing about sockets or processes; any byte stream will
 // do.
 package protocol
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import "github.com/thomassbooth/floe/internal/domain"
 
 // Version is the version of the messages below. A client and server only
 // talk when theirs match.
@@ -15,7 +15,7 @@ type Message interface {
 	message()
 }
 
-// Hello is the first message a client sends. Build identifies the mux
+// Hello is the first message a client sends. Build identifies the floe
 // binary, so a client never talks to a server running different code.
 type Hello struct {
 	Version int

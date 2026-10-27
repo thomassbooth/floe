@@ -3,7 +3,7 @@ package service
 import (
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // layoutService moves and resizes windows and makes sure every pane's screen

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 func TestServiceSizesSessionForMostRecentlyActiveClient(t *testing.T) {

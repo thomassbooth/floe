@@ -1,6 +1,6 @@
 package service
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import "github.com/thomassbooth/floe/internal/domain"
 
 // PaneHost runs the processes behind panes. The infrastructure layer
 // implements it.

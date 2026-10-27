@@ -10,8 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/infra/atomicfile"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/infra/atomicfile"
 )
 
 // version is bumped when the file format changes in a way older code
@@ -23,17 +23,17 @@ type File struct {
 	path string
 }
 
-// DefaultPath returns where sessions are kept: $XDG_STATE_HOME/mux, or
-// ~/.local/state/mux, on every platform.
+// DefaultPath returns where sessions are kept: $XDG_STATE_HOME/floe, or
+// ~/.local/state/floe, on every platform.
 func DefaultPath() (string, error) {
 	if dir := os.Getenv("XDG_STATE_HOME"); dir != "" {
-		return filepath.Join(dir, "mux", "sessions.json"), nil
+		return filepath.Join(dir, "floe", "sessions.json"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("find sessions file: %w", err)
 	}
-	return filepath.Join(home, ".local", "state", "mux", "sessions.json"), nil
+	return filepath.Join(home, ".local", "state", "floe", "sessions.json"), nil
 }
 
 // New returns the sessions file at path. Nothing is read until Load.

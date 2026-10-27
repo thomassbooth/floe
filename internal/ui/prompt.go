@@ -3,7 +3,7 @@ package ui
 import (
 	"unicode"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // prompt is a one-line text input shown in the status bar.

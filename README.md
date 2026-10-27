@@ -1,14 +1,14 @@
-# mux
+# floe
 
 A terminal multiplexer with free-floating windows. Drag them, resize them,
 snap them to the edges of the screen, or tidy them into a grid with one key.
 Sessions run in a background server, so closing your terminal never stops
-your programs: run `mux` again and everything is where you left it.
+your programs: run `floe` again and everything is where you left it.
 
 ```
 ╭─ 1 sh ──────────────────────── □ × ─╮╭─ 2 sh ──────────────────────── □ × ─╮
-│-sh-3.2$ echo hello from mux         ││-sh-3.2$ ls /                        │
-│hello from mux                       ││Applications    private              │
+│-sh-3.2$ echo hello from floe        ││-sh-3.2$ ls /                        │
+│hello from floe                      ││Applications    private              │
 │-sh-3.2$                             ││bin             run                  │
 │                                     ││cores           sbin                 │
 │                                     ││dev             System               │
@@ -47,20 +47,20 @@ your programs: run `mux` again and everything is where you left it.
   rings the bell (!).
 - **Themes.** Eight built in, with a live preview picker: Violet, Catppuccin
   Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Dracula. Until
-  you pick one, mux matches your terminal's light or dark background.
+  you pick one, floe matches your terminal's light or dark background.
 - **Help when you need it.** Press the prefix and a popup lists every key.
 
 ## Install
 
-mux runs on macOS and Linux. Building it needs Go 1.26 or newer.
+floe runs on macOS and Linux. Building it needs Go 1.26 or newer.
 
 ```sh
-git clone https://github.com/thomassbooth/terminal-multiplexer.git
-cd terminal-multiplexer
-go build -o mux ./cmd/mux
+git clone https://github.com/thomassbooth/floe.git
+cd floe
+go build -o floe ./cmd/floe
 ```
 
-Then put `mux` somewhere on your `PATH`.
+Then put `floe` somewhere on your `PATH`.
 
 For the best results use a terminal with true color and mouse support, such
 as WezTerm, Ghostty, kitty, iTerm2 or Alacritty.
@@ -68,12 +68,12 @@ as WezTerm, Ghostty, kitty, iTerm2 or Alacritty.
 ## Usage
 
 ```sh
-mux               # attach to the server, starting it if needed
-mux kill-server   # stop the server and every program in it; layouts are kept
-mux help
+floe               # attach to the server, starting it if needed
+floe kill-server   # stop the server and every program in it; layouts are kept
+floe help
 ```
 
-Everything else happens inside mux. The prefix key is `ctrl+b`, as in tmux:
+Everything else happens inside floe. The prefix key is `ctrl+b`, as in tmux:
 press it, let go, then press the key for what you want. Press `ctrl+b`
 twice to send `ctrl+b` itself to the program in the window.
 
@@ -140,18 +140,18 @@ windows without pressing the prefix each time.
 
 | Path | What |
 |---|---|
-| `~/.config/mux/settings.json` | Your chosen theme |
-| `~/.local/state/mux/sessions.json` | Saved sessions, for after a restart |
-| `~/.local/state/mux/server.log` | What the server has to say |
-| `$TMPDIR/mux-<uid>/` | The server's socket, private to you |
+| `~/.config/floe/settings.json` | Your chosen theme |
+| `~/.local/state/floe/sessions.json` | Saved sessions, for after a restart |
+| `~/.local/state/floe/server.log` | What the server has to say |
+| `$TMPDIR/floe-<uid>/` | The server's socket, private to you |
 
 `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_RUNTIME_DIR` are honored.
 
 ## After upgrading
 
 A server only talks to clients built from the same binary. If you rebuild
-mux while a server is running, `mux` will tell you so; run
-`mux kill-server` and then `mux` again. Your windows and layouts come back,
+floe while a server is running, `floe` will tell you so; run
+`floe kill-server` and then `floe` again. Your windows and layouts come back,
 but programs that were running in them do not.
 
 ## Development

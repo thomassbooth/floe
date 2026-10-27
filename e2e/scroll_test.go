@@ -76,7 +76,7 @@ func TestWheelInAFullScreenProgramSendsArrows(t *testing.T) {
 		return strings.TrimSpace(strings.Trim(tm.lines()[1], "│")) == "4"
 	})
 	if strings.Contains(tm.screen(), "↑ ") {
-		t.Fatal("a full-screen program has no mux scrollback")
+		t.Fatal("a full-screen program has no floe scrollback")
 	}
 	tm.send("q")
 }

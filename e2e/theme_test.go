@@ -85,7 +85,7 @@ func TestThemePickerPreviewsKeepsAndRemembers(t *testing.T) {
 	tm.send("\r")
 	tm.waitUntil("picker to close", func(s string) bool { return !strings.Contains(s, "enter keep") })
 
-	raw, err := os.ReadFile(filepath.Join(config, "mux", "settings.json"))
+	raw, err := os.ReadFile(filepath.Join(config, "floe", "settings.json"))
 	if err != nil || !strings.Contains(string(raw), `"tokyo-night"`) {
 		t.Fatalf("the choice should be saved, got %q, %v", raw, err)
 	}
@@ -108,7 +108,7 @@ func TestThemePickerCancelGoesBack(t *testing.T) {
 	tm.accentIs("a preview", mauve)
 	tm.send("\x1b")
 	tm.accentIs("the original theme back", violet)
-	if _, err := os.Stat(filepath.Join(config, "mux", "settings.json")); err == nil {
+	if _, err := os.Stat(filepath.Join(config, "floe", "settings.json")); err == nil {
 		t.Fatal("cancelling must not save anything")
 	}
 }
@@ -121,8 +121,8 @@ func TestLightTerminalStartsWithLightTheme(t *testing.T) {
 
 func TestSavedThemeWinsOverTerminalBackground(t *testing.T) {
 	config := t.TempDir()
-	os.MkdirAll(filepath.Join(config, "mux"), 0o755)
-	os.WriteFile(filepath.Join(config, "mux", "settings.json"), []byte(`{"theme":"tokyo-night"}`), 0o644)
+	os.MkdirAll(filepath.Join(config, "floe"), 0o755)
+	os.WriteFile(filepath.Join(config, "floe", "settings.json"), []byte(`{"theme":"tokyo-night"}`), 0o644)
 	tm := launchWith(t, options{w: 100, h: 30, config: config, background: color.White})
 	tm.waitFor(" 1 sh ")
 	tm.accentIs("the saved theme", tokyoBl)

@@ -10,24 +10,24 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/infra/settings"
-	"github.com/thomasbooth/multiplexer/internal/infra/socket"
-	"github.com/thomasbooth/multiplexer/internal/input"
-	"github.com/thomasbooth/multiplexer/internal/remote"
-	"github.com/thomasbooth/multiplexer/internal/ui"
+	"github.com/thomassbooth/floe/internal/domain"
+	"github.com/thomassbooth/floe/internal/infra/settings"
+	"github.com/thomassbooth/floe/internal/infra/socket"
+	"github.com/thomassbooth/floe/internal/input"
+	"github.com/thomassbooth/floe/internal/remote"
+	"github.com/thomassbooth/floe/internal/ui"
 )
 
 // errOtherBuild explains what to do when the server is older, or newer,
 // than this client.
-var errOtherBuild = errors.New(`the running mux server is a different build of mux.
-Run "mux kill-server" to replace it: windows and layouts are kept, but the programs in them stop`)
+var errOtherBuild = errors.New(`the running floe server is a different build of floe.
+Run "floe kill-server" to replace it: windows and layouts are kept, but the programs in them stop`)
 
 // runClient attaches this terminal to the server and shows it until the
 // client detaches.
 func runClient() error {
 	if os.Getenv(insideEnv) != "" {
-		return fmt.Errorf("already inside mux; unset %s to run mux inside itself", insideEnv)
+		return fmt.Errorf("already inside floe; unset %s to run floe inside itself", insideEnv)
 	}
 	build, err := buildID()
 	if err != nil {
@@ -82,17 +82,17 @@ func runClient() error {
 	return nil
 }
 
-// openPreferences loads the settings file. If it cannot be read, mux still
+// openPreferences loads the settings file. If it cannot be read, floe still
 // starts, with nothing remembered, and leaves the file alone.
 func openPreferences() ui.Preferences {
 	path, err := settings.DefaultPath()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "mux: settings not available:", err)
+		fmt.Fprintln(os.Stderr, "floe: settings not available:", err)
 		return nil
 	}
 	f, err := settings.Open(path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "mux: settings not available:", err)
+		fmt.Fprintln(os.Stderr, "floe: settings not available:", err)
 		return nil
 	}
 	return f

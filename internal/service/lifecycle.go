@@ -1,6 +1,6 @@
 package service
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import "github.com/thomassbooth/floe/internal/domain"
 
 // lifecycleService decides when the service stops: once sessions have
 // existed and the last one has ended, like the tmux server.

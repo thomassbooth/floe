@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // windowService opens and closes windows and keeps them paired with running

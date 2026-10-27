@@ -57,12 +57,12 @@ func TestCorruptFileIsAnErrorAndLeftAlone(t *testing.T) {
 
 func TestDefaultPathHonorsXDGConfigHome(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "/tmp/cfg")
-	if got, _ := DefaultPath(); got != "/tmp/cfg/mux/settings.json" {
+	if got, _ := DefaultPath(); got != "/tmp/cfg/floe/settings.json" {
 		t.Fatalf("got %q", got)
 	}
 	t.Setenv("XDG_CONFIG_HOME", "")
 	home, _ := os.UserHomeDir()
-	if got, _ := DefaultPath(); got != filepath.Join(home, ".config", "mux", "settings.json") {
+	if got, _ := DefaultPath(); got != filepath.Join(home, ".config", "floe", "settings.json") {
 		t.Fatalf("got %q", got)
 	}
 }

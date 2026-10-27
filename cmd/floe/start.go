@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/thomasbooth/multiplexer/internal/infra/socket"
+	"github.com/thomassbooth/floe/internal/infra/socket"
 )
 
 const (
@@ -44,18 +44,18 @@ func connect(path string) (net.Conn, error) {
 			return conn, nil
 		}
 		if time.Now().After(deadline) {
-			return nil, fmt.Errorf("connect to the mux server: %w", err)
+			return nil, fmt.Errorf("connect to the floe server: %w", err)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 }
 
-// startServer runs "mux server" in the background, in a session of its own
+// startServer runs "floe server" in the background, in a session of its own
 // so closing this terminal does not stop it, and waits until it is ready.
 func startServer() error {
 	exe, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("start the mux server: %w", err)
+		return fmt.Errorf("start the floe server: %w", err)
 	}
 	logPath, err := serverLogPath()
 	if err != nil {
@@ -69,7 +69,7 @@ func startServer() error {
 
 	r, w, err := os.Pipe()
 	if err != nil {
-		return fmt.Errorf("start the mux server: %w", err)
+		return fmt.Errorf("start the floe server: %w", err)
 	}
 	defer r.Close()
 
@@ -81,7 +81,7 @@ func startServer() error {
 	err = cmd.Start()
 	_ = w.Close()
 	if err != nil {
-		return fmt.Errorf("start the mux server: %w", err)
+		return fmt.Errorf("start the floe server: %w", err)
 	}
 	// Reap the server if it ends while this client still runs.
 	go func() { _ = cmd.Wait() }()
@@ -89,14 +89,14 @@ func startServer() error {
 	_ = r.SetReadDeadline(time.Now().Add(startTimeout))
 	report, err := io.ReadAll(r)
 	if errors.Is(err, os.ErrDeadlineExceeded) {
-		return fmt.Errorf("the mux server did not start in time; see %s", logPath)
+		return fmt.Errorf("the floe server did not start in time; see %s", logPath)
 	}
 	switch line := strings.TrimSpace(string(report)); line {
 	case readyListening, readyRunning:
 		return nil
 	case "":
-		return fmt.Errorf("the mux server stopped while starting; see %s", logPath)
+		return fmt.Errorf("the floe server stopped while starting; see %s", logPath)
 	default:
-		return fmt.Errorf("the mux server could not start: %s", line)
+		return fmt.Errorf("the floe server could not start: %s", line)
 	}
 }

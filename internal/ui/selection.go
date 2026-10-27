@@ -6,7 +6,7 @@ import (
 
 	uv "github.com/charmbracelet/ultraviolet"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // multiClickWindow is how quickly clicks on one cell must follow each other

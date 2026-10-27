@@ -3,7 +3,7 @@ package protocol
 import (
 	"encoding/gob"
 
-	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomassbooth/floe/internal/domain"
 )
 
 // Every concrete type that travels inside an interface must be registered

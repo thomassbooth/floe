@@ -1,6 +1,6 @@
 package service
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import "github.com/thomassbooth/floe/internal/domain"
 
 // focusService decides which window in a session has focus.
 type focusService struct{}
