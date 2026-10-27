@@ -28,6 +28,7 @@ var rules = map[string]struct {
 	"internal/infra/store":      {project: []string{"internal/domain", "internal/infra/atomicfile"}},
 	"internal/input":            {project: []string{"internal/domain"}},
 	"internal/wire":             {project: []string{"internal/domain"}},
+	"internal/remote":           {project: []string{"internal/domain", "internal/queue", "internal/wire"}},
 	"internal/service":          {project: []string{"internal/domain", "internal/queue"}},
 	"internal/infra/terminal":   {project: []string{"internal/domain", "internal/queue"}, thirdParty: true},
 	"internal/ui":               {project: []string{"internal/domain", "internal/input", "internal/theme"}, thirdParty: true},
