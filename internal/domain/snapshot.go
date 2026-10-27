@@ -14,12 +14,15 @@ type Snapshot struct {
 
 // WindowView is one window as it appears on screen.
 type WindowView struct {
-	ID      WindowID
-	Pane    PaneID
-	Title   string
-	Frame   Rect
-	Content Rect
-	Focused bool
+	ID    WindowID
+	Pane  PaneID
+	Title string
+	// Activity and Bell mark a window that printed something, or rang the
+	// bell, while another one had focus.
+	Activity, Bell bool
+	Frame          Rect
+	Content        Rect
+	Focused        bool
 	// Maximized is set while the window fills the screen and remembers
 	// where to go back to.
 	Maximized bool

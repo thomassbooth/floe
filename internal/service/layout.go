@@ -1,17 +1,39 @@
 package service
 
-import "github.com/thomasbooth/multiplexer/internal/domain"
+import (
+	"time"
+
+	"github.com/thomasbooth/multiplexer/internal/domain"
+)
 
 // layoutService moves and resizes windows and makes sure every pane's screen
 // size matches the space its window gives it.
 type layoutService struct {
 	host PaneHost
-	// sizes is the size each pane was last told about.
-	sizes map[domain.PaneID]domain.Size
+	now  func() time.Time
+	// sizes is the size each pane was last told about, and resized when.
+	sizes   map[domain.PaneID]domain.Size
+	resized map[domain.PaneID]time.Time
 }
 
-func newLayoutService(host PaneHost) *layoutService {
-	return &layoutService{host: host, sizes: make(map[domain.PaneID]domain.Size)}
+// redrawQuiet is how long after a resize a pane's output is taken as its
+// program redrawing to fit, rather than as activity.
+const redrawQuiet = 500 * time.Millisecond
+
+func newLayoutService(host PaneHost, now func() time.Time) *layoutService {
+	return &layoutService{
+		host:    host,
+		now:     now,
+		sizes:   make(map[domain.PaneID]domain.Size),
+		resized: make(map[domain.PaneID]time.Time),
+	}
+}
+
+// redrawing reports whether a pane was resized so recently that its output
+// is probably just its program redrawing.
+func (l *layoutService) redrawing(id domain.PaneID) bool {
+	at, ok := l.resized[id]
+	return ok && l.now().Sub(at) < redrawQuiet
 }
 
 // setArea sets the space a session's windows are laid out in. It reports
@@ -90,6 +112,7 @@ func (l *layoutService) track(id domain.PaneID, size domain.Size) {
 // forget drops a pane that has exited.
 func (l *layoutService) forget(id domain.PaneID) {
 	delete(l.sizes, id)
+	delete(l.resized, id)
 }
 
 // sync resizes every pane whose window changed size and returns the
@@ -100,6 +123,7 @@ func (l *layoutService) sync(sess *domain.Session) domain.Snapshot {
 		size := w.Content.Size()
 		if l.sizes[w.Pane] != size {
 			l.sizes[w.Pane] = size
+			l.resized[w.Pane] = l.now()
 			l.host.Resize(w.Pane, size)
 		}
 	}

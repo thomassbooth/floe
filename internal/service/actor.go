@@ -290,6 +290,10 @@ func (s *Service) notices(notices []domain.PaneNotice) {
 			if s.windows.retitle(sess, n.Pane, n.Text) {
 				s.markDirty(sess.ID())
 			}
+		case domain.NoticeBell:
+			if sess.MarkBell(n.Pane) {
+				s.markDirty(sess.ID())
+			}
 		case domain.NoticeClipboard:
 			for _, c := range s.server.ClientsOf(sess.ID()) {
 				s.clients.send(c, domain.ClipboardSet{Text: n.Text})
@@ -298,12 +302,19 @@ func (s *Service) notices(notices []domain.PaneNotice) {
 	}
 }
 
-// paneOutput tells the clients viewing changed panes to redraw.
+// paneOutput tells the clients viewing changed panes to redraw, and marks
+// windows without focus as active, unless their program is only redrawing
+// after a resize.
 func (s *Service) paneOutput() {
 	sessions := map[domain.SessionID]bool{}
 	for _, p := range s.host.TakeChanged() {
-		if sess, ok := s.server.SessionForPane(p); ok {
-			sessions[sess.ID()] = true
+		sess, ok := s.server.SessionForPane(p)
+		if !ok {
+			continue
+		}
+		sessions[sess.ID()] = true
+		if !s.layout.redrawing(p) && sess.MarkActivity(p) {
+			s.markDirty(sess.ID())
 		}
 	}
 	for id := range sessions {

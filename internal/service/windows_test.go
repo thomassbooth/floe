@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
 )
@@ -129,6 +130,43 @@ func TestServicePassesClipboardCopiesToViewers(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestServiceMarksActivityButNotRedrawsAfterResize(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right}) // resizes window 1
+	c.layoutUntil(windows(2))
+
+	// Window 1's shell redraws to fit its new size: not activity. The
+	// redraw signal shows the output was handled before time moves on.
+	h.host.output(1)
+	select {
+	case <-c.c.Changed():
+	case <-time.After(2 * time.Second):
+		t.Fatal("the output was never handled")
+	}
+	h.clock.advance(time.Second)
+	h.host.retitle(1, "marker") // a layout to look at once that was handled
+	snap := c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Title == "marker" })
+	if snap.Windows[0].Activity {
+		t.Fatal("redrawing after a resize is not activity")
+	}
+
+	h.host.output(1)
+	snap = c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Activity })
+	if snap.Windows[1].Activity {
+		t.Fatal("the focused window is never marked")
+	}
+
+	h.host.notify(domain.PaneNotice{Pane: 1, Kind: domain.NoticeBell})
+	c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Bell })
+
+	c.apply(domain.FocusWindow{ID: 1})
+	c.layoutUntil(func(s domain.Snapshot) bool {
+		w := s.Windows[len(s.Windows)-1]
+		return w.ID == 1 && !w.Activity && !w.Bell
+	})
 }
 
 func TestServiceClosesWindowByID(t *testing.T) {

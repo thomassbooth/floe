@@ -9,6 +9,7 @@ package service
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
 	"github.com/thomasbooth/multiplexer/internal/queue"
@@ -18,6 +19,8 @@ import (
 type Options struct {
 	// Title is the title given to new windows.
 	Title string
+	// Now tells the time; time.Now when nil. Tests set it to control time.
+	Now func() time.Time
 }
 
 // Service is the entry point to the service layer.
@@ -43,8 +46,11 @@ type Service struct {
 
 // New returns a service that runs panes on host. Call Run to start it.
 func New(host PaneHost, opts Options) *Service {
+	if opts.Now == nil {
+		opts.Now = time.Now
+	}
 	server := domain.NewServer()
-	layout := newLayoutService(host)
+	layout := newLayoutService(host, opts.Now)
 	windows := newWindowService(server, host, layout, opts.Title)
 	sessions := newSessionService(server, host, windows)
 	return &Service{

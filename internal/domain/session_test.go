@@ -415,6 +415,32 @@ func TestSessionSnapshot(t *testing.T) {
 	}
 }
 
+func TestSessionMarksActivityAndBellOnUnfocusedWindows(t *testing.T) {
+	s := newSession(t, Right) // window 2 focused
+	if s.MarkActivity(2) || s.MarkBell(2) {
+		t.Fatal("the focused window is never marked")
+	}
+	if !s.MarkActivity(1) || s.MarkActivity(1) {
+		t.Fatal("activity should be marked once")
+	}
+	if !s.MarkBell(1) {
+		t.Fatal("expected a bell")
+	}
+	w := s.Snapshot().Windows[0]
+	if !w.Activity || !w.Bell {
+		t.Fatalf("window 1 = %+v", w)
+	}
+	if !s.Focus(1) {
+		t.Fatal("focusing changes the window")
+	}
+	if w := s.Snapshot().Windows[1]; w.Activity || w.Bell {
+		t.Fatalf("focusing should clear the marks: %+v", w)
+	}
+	if s.MarkActivity(99) {
+		t.Fatal("unknown panes are ignored")
+	}
+}
+
 func TestSessionSetTitle(t *testing.T) {
 	s := newSession(t)
 	if !s.SetTitle(1, "vim") || s.SetTitle(1, "vim") || s.SetTitle(9, "x") {

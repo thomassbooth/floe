@@ -141,16 +141,37 @@ func (h *fakeHost) size(id domain.PaneID) domain.Size {
 type harness struct {
 	t      *testing.T
 	host   *fakeHost
+	clock  *clock
 	svc    *Service
 	cancel context.CancelFunc
 	errc   chan error
+}
+
+// clock is a time source tests move by hand.
+type clock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *clock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *clock) advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = c.now.Add(d)
 }
 
 func start(t *testing.T, host *fakeHost) *harness {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	h := &harness{t: t, host: host, svc: New(host, Options{Title: "sh"}), cancel: cancel, errc: make(chan error, 1)}
+	clk := &clock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	h := &harness{t: t, host: host, clock: clk, cancel: cancel, errc: make(chan error, 1)}
+	h.svc = New(host, Options{Title: "sh", Now: clk.Now})
 	go func() { h.errc <- h.svc.Run(ctx) }()
 	return h
 }

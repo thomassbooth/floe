@@ -17,6 +17,9 @@ type Window struct {
 	ID    WindowID
 	Pane  PaneID
 	Title string
+	// Activity is set when the window printed something while another one
+	// had focus, and Bell when it rang the bell. Focusing it clears both.
+	Activity, Bell bool
 }
 
 // Session is a named set of windows, where they are, and which one has
@@ -273,11 +276,47 @@ func (s *Session) Focus(id WindowID) bool {
 		return false
 	}
 	raised := s.stack.Raise(id)
+	w := s.windows[id]
+	cleared := w.Activity || w.Bell
+	w.Activity, w.Bell = false, false
 	if cur, _ := s.focused(); cur == id {
-		return raised
+		return raised || cleared
 	}
 	s.touch(id)
 	return true
+}
+
+// MarkActivity notes that a pane printed something. Only windows without
+// focus are marked. It reports whether the window changed.
+func (s *Session) MarkActivity(pane PaneID) bool {
+	w, ok := s.unfocusedWindowFor(pane)
+	if !ok || w.Activity {
+		return false
+	}
+	w.Activity = true
+	return true
+}
+
+// MarkBell notes that a pane rang the bell. Only windows without focus are
+// marked. It reports whether the window changed.
+func (s *Session) MarkBell(pane PaneID) bool {
+	w, ok := s.unfocusedWindowFor(pane)
+	if !ok || w.Bell {
+		return false
+	}
+	w.Bell = true
+	return true
+}
+
+func (s *Session) unfocusedWindowFor(pane PaneID) (*Window, bool) {
+	id, ok := s.panes[pane]
+	if !ok {
+		return nil, false
+	}
+	if cur, _ := s.focused(); cur == id {
+		return nil, false
+	}
+	return s.windows[id], true
 }
 
 // FocusDirection moves focus to the neighbor of the focused window in
@@ -485,6 +524,8 @@ func (s *Session) Snapshot() Snapshot {
 			ID:        w.ID,
 			Pane:      w.Pane,
 			Title:     w.Title,
+			Activity:  w.Activity,
+			Bell:      w.Bell,
 			Frame:     p.Frame,
 			Content:   p.Frame.Inset(FrameInset),
 			Focused:   w.ID == focus,

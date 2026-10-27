@@ -230,11 +230,21 @@ func (m Model) statusBar(width int) (line string, bounds toggleBounds) {
 	left.WriteString(badge.Render(m.sessionLabel()))
 	left.WriteString(bar.Render(" "))
 	for _, tab := range m.statusTabs() {
+		style := dim
 		if tab.window.Focused {
-			left.WriteString(bar.Background(t.ActiveTabBg).Bold(true).Render(tab.label))
-		} else {
-			left.WriteString(dim.Render(tab.label))
+			style = bar.Background(t.ActiveTabBg).Bold(true)
 		}
+		left.WriteString(style.Render(tab.label))
+		if tab.marker != "" {
+			left.WriteString(style.Render(" "))
+		}
+		switch tab.marker {
+		case bellMarker:
+			left.WriteString(style.Foreground(t.Error).Bold(true).Render(tab.marker))
+		case activityMarker:
+			left.WriteString(style.Foreground(t.Accent).Render(tab.marker))
+		}
+		left.WriteString(style.Render(" "))
 	}
 
 	var right, toggle string
@@ -278,12 +288,21 @@ type toggleBounds struct {
 }
 
 // statusTab is a window's tab in the status bar, covering columns
-// [x0, x1).
+// [x0, x1): its label, a marker for activity or a bell if any, and a
+// space.
 type statusTab struct {
 	window domain.WindowView
 	label  string
+	marker string
 	x0, x1 int
 }
+
+// Markers after a tab's label for a window that printed something, or rang
+// the bell, while another had focus.
+const (
+	activityMarker = "•"
+	bellMarker     = "!"
+)
 
 // statusTabs lays out the window tabs that follow the session badge, in
 // window order. Drawing and mouse clicks both use it, so a click always
@@ -295,9 +314,19 @@ func (m Model) statusTabs() []statusTab {
 	x := m.badgeWidth() + 1
 	tabs := make([]statusTab, len(windows))
 	for i, w := range windows {
-		label := fmt.Sprintf(" %d %s ", w.ID, w.Title)
-		width := lipgloss.Width(label)
-		tabs[i] = statusTab{window: w, label: label, x0: x, x1: x + width}
+		label := fmt.Sprintf(" %d %s", w.ID, w.Title)
+		marker := ""
+		switch {
+		case w.Bell:
+			marker = bellMarker
+		case w.Activity:
+			marker = activityMarker
+		}
+		width := lipgloss.Width(label) + 1 // and the space after
+		if marker != "" {
+			width += 1 + lipgloss.Width(marker) // a space, then the marker
+		}
+		tabs[i] = statusTab{window: w, label: label, marker: marker, x0: x, x1: x + width}
 		x += width
 	}
 	return tabs
