@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomasbooth/multiplexer/internal/queue"
 )
 
 // fakeHost records what the service asks of it. Kill reports the pane as
@@ -22,10 +23,9 @@ type fakeHost struct {
 	changed  chan struct{}
 	dirty    []domain.PaneID
 
-	mice         map[domain.PaneID][]domain.MouseEvent
-	spawnDirs    map[domain.PaneID]string
-	titles       map[domain.PaneID]string
-	titleChanged chan struct{}
+	mice      map[domain.PaneID][]domain.MouseEvent
+	spawnDirs map[domain.PaneID]string
+	notices   *queue.Unbounded[domain.PaneNotice]
 }
 
 func newFakeHost() *fakeHost {
@@ -36,10 +36,9 @@ func newFakeHost() *fakeHost {
 		exited:  make(chan domain.PaneID, 16),
 		changed: make(chan struct{}, 1),
 
-		mice:         map[domain.PaneID][]domain.MouseEvent{},
-		spawnDirs:    map[domain.PaneID]string{},
-		titles:       map[domain.PaneID]string{},
-		titleChanged: make(chan struct{}, 1),
+		mice:      map[domain.PaneID][]domain.MouseEvent{},
+		spawnDirs: map[domain.PaneID]string{},
+		notices:   queue.New[domain.PaneNotice](),
 	}
 }
 
@@ -58,25 +57,13 @@ func (h *fakeHost) WorkingDir(id domain.PaneID) (string, bool) {
 	return fmt.Sprintf("/dir/of/%d", id), true
 }
 
-func (h *fakeHost) TitleChanged() <-chan struct{} { return h.titleChanged }
-
-func (h *fakeHost) TakeTitles() map[domain.PaneID]string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	out := h.titles
-	h.titles = map[domain.PaneID]string{}
-	return out
-}
+func (h *fakeHost) Notices() <-chan struct{}         { return h.notices.Ready() }
+func (h *fakeHost) TakeNotices() []domain.PaneNotice { return h.notices.Drain() }
+func (h *fakeHost) notify(n domain.PaneNotice)       { h.notices.Push(n) }
 
 // retitle pretends a pane's title changed.
 func (h *fakeHost) retitle(id domain.PaneID, title string) {
-	h.mu.Lock()
-	h.titles[id] = title
-	h.mu.Unlock()
-	select {
-	case h.titleChanged <- struct{}{}:
-	default:
-	}
+	h.notify(domain.PaneNotice{Pane: id, Kind: domain.NoticeTitle, Text: title})
 }
 
 func (h *fakeHost) Resize(id domain.PaneID, size domain.Size) {

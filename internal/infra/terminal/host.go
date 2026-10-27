@@ -3,6 +3,8 @@
 package terminal
 
 import (
+	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +31,10 @@ const killGrace = 2 * time.Second
 // scrollbackLines is how much history each pane keeps.
 const scrollbackLines = 10_000
 
+// maxClipboard caps how much a program may copy at once, so a runaway
+// program cannot flood the clipboard.
+const maxClipboard = 1 << 20
+
 // titleInterval is how often titles are checked for a new foreground
 // program, which the terminal gives no notice of.
 const titleInterval = 500 * time.Millisecond
@@ -51,11 +57,10 @@ type Host struct {
 	exited    chan domain.PaneID
 	changed   chan struct{}
 
-	// titles is the title last reported for each pane, and newTitles the
-	// changes not yet taken.
-	titles       map[domain.PaneID]string
-	newTitles    map[domain.PaneID]string
-	titleChanged chan struct{}
+	// titles is the title last reported for each pane.
+	titles map[domain.PaneID]string
+	// notices holds what panes' programs did, until the service takes it.
+	notices *queue.Unbounded[domain.PaneNotice]
 	// poke wakes the title watcher early, when a program sets a title.
 	poke chan struct{}
 	stop chan struct{}
@@ -65,17 +70,16 @@ type Host struct {
 // NewHost returns a host with no panes. Call Close when done with it.
 func NewHost(opts Options) *Host {
 	h := &Host{
-		opts:         opts,
-		shellName:    filepath.Base(opts.Shell),
-		panes:        make(map[domain.PaneID]*pane),
-		dirty:        make(map[domain.PaneID]struct{}),
-		exited:       make(chan domain.PaneID, 64),
-		changed:      make(chan struct{}, 1),
-		titles:       make(map[domain.PaneID]string),
-		newTitles:    make(map[domain.PaneID]string),
-		titleChanged: make(chan struct{}, 1),
-		poke:         make(chan struct{}, 1),
-		stop:         make(chan struct{}),
+		opts:      opts,
+		shellName: filepath.Base(opts.Shell),
+		panes:     make(map[domain.PaneID]*pane),
+		dirty:     make(map[domain.PaneID]struct{}),
+		exited:    make(chan domain.PaneID, 64),
+		changed:   make(chan struct{}, 1),
+		titles:    make(map[domain.PaneID]string),
+		notices:   queue.New[domain.PaneNotice](),
+		poke:      make(chan struct{}, 1),
+		stop:      make(chan struct{}),
 	}
 	go h.watchTitles()
 	return h
@@ -131,6 +135,9 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 		WorkingDirectory: func(dir string) {
 			p.oscDir = dir
 		},
+		Bell: func() {
+			h.notices.Push(domain.PaneNotice{Pane: id, Kind: domain.NoticeBell})
+		},
 		EnableMode: func(m ansi.Mode) {
 			if d, ok := m.(ansi.DECMode); ok && isMouseMode(d) {
 				p.mouseModes[d] = true
@@ -141,6 +148,12 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 				delete(p.mouseModes, d)
 			}
 		},
+	})
+	p.emu.RegisterOscHandler(52, func(data []byte) bool {
+		if text, ok := clipboardText(data); ok {
+			h.notices.Push(domain.PaneNotice{Pane: id, Kind: domain.NoticeClipboard, Text: text})
+		}
+		return true
 	})
 	h.mu.Lock()
 	h.panes[id] = p
@@ -156,7 +169,6 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 		h.mu.Lock()
 		delete(h.panes, id)
 		delete(h.titles, id)
-		delete(h.newTitles, id)
 		h.mu.Unlock()
 		h.exited <- id
 	}()
@@ -257,16 +269,25 @@ func (h *Host) WorkingDir(id domain.PaneID) (string, bool) {
 	return workingDir(p.cmd.Process.Pid)
 }
 
-// TitleChanged implements service.PaneHost.
-func (h *Host) TitleChanged() <-chan struct{} { return h.titleChanged }
+// Notices implements service.PaneHost.
+func (h *Host) Notices() <-chan struct{} { return h.notices.Ready() }
 
-// TakeTitles implements service.PaneHost.
-func (h *Host) TakeTitles() map[domain.PaneID]string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	out := h.newTitles
-	h.newTitles = make(map[domain.PaneID]string)
-	return out
+// TakeNotices implements service.PaneHost.
+func (h *Host) TakeNotices() []domain.PaneNotice { return h.notices.Drain() }
+
+// clipboardText decodes an OSC 52 "set clipboard" sequence, "52;c;<base64>".
+// Requests to read the clipboard ("?") are refused: programs in mux must
+// not see what was copied elsewhere.
+func clipboardText(data []byte) (string, bool) {
+	parts := bytes.SplitN(data, []byte{';'}, 3)
+	if len(parts) != 3 || string(parts[2]) == "?" || base64.StdEncoding.DecodedLen(len(parts[2])) > maxClipboard {
+		return "", false
+	}
+	text, err := base64.StdEncoding.DecodeString(string(parts[2]))
+	if err != nil {
+		return "", false
+	}
+	return string(text), true
 }
 
 func (h *Host) pokeTitles() {
@@ -306,19 +327,11 @@ func (h *Host) refreshTitles() {
 	}
 
 	h.mu.Lock()
-	changed := false
+	defer h.mu.Unlock()
 	for id, t := range titles {
 		if _, alive := h.panes[id]; alive && h.titles[id] != t {
 			h.titles[id] = t
-			h.newTitles[id] = t
-			changed = true
-		}
-	}
-	h.mu.Unlock()
-	if changed {
-		select {
-		case h.titleChanged <- struct{}{}:
-		default:
+			h.notices.Push(domain.PaneNotice{Pane: id, Kind: domain.NoticeTitle, Text: t})
 		}
 	}
 }

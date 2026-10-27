@@ -139,6 +139,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.snap = ev.Snapshot
 		case domain.SessionsChanged:
 			m.sessions = ev
+		case domain.ClipboardSet:
+			return m, tea.Batch(m.waitEvent, tea.SetClipboard(ev.Text))
 		case domain.CommandFailed:
 			m.notice = ev.Err.Error()
 		case domain.Detached:

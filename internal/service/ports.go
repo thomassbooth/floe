@@ -32,10 +32,11 @@ type PaneHost interface {
 	// TakeChanged returns the panes whose screens changed since it was last
 	// called.
 	TakeChanged() []domain.PaneID
-	// TitleChanged receives a signal when any pane's title changes, such
-	// as when a new program starts in it. Signals coalesce.
-	TitleChanged() <-chan struct{}
-	// TakeTitles returns the panes whose titles changed since it was last
-	// called, with their new titles.
-	TakeTitles() map[domain.PaneID]string
+	// Notices receives a signal when panes' programs have done something
+	// the session should hear about, such as setting a title. Signals
+	// coalesce; TakeNotices says what happened.
+	Notices() <-chan struct{}
+	// TakeNotices returns the notices since it was last called, oldest
+	// first.
+	TakeNotices() []domain.PaneNotice
 }

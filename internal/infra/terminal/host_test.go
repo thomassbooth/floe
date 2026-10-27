@@ -163,19 +163,7 @@ func TestHostTitleFollowsForegroundProgramAndShellTitle(t *testing.T) {
 	}
 	waitTitle := func(want string) {
 		t.Helper()
-		deadline := time.Now().Add(5 * time.Second)
-		for {
-			select {
-			case <-h.TitleChanged():
-				if got, ok := h.TakeTitles()[1]; ok && got == want {
-					return
-				}
-			case <-time.After(50 * time.Millisecond):
-			}
-			if time.Now().After(deadline) {
-				t.Fatalf("title never became %q", want)
-			}
-		}
+		waitNotice(t, h, domain.PaneNotice{Pane: 1, Kind: domain.NoticeTitle, Text: want})
 	}
 
 	h.Paste(1, "sleep 30\r")
@@ -245,5 +233,49 @@ func TestHostForwardsMouseOnlyWhenAskedFor(t *testing.T) {
 	waitForText(t, h, 1, "^[[<0;5;3M")
 	if g, _ := h.Grid(1, 0); strings.Contains(gridText(g), ";10;10") {
 		t.Fatal("click-only programs must not get motion")
+	}
+}
+
+// waitNotice waits for the host to report a notice.
+func waitNotice(t *testing.T, h *Host, want domain.PaneNotice) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		select {
+		case <-h.Notices():
+			for _, n := range h.TakeNotices() {
+				if n == want {
+					return
+				}
+			}
+		case <-time.After(50 * time.Millisecond):
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("never got notice %+v", want)
+		}
+	}
+}
+
+func TestHostReportsClipboardCopiesAndBells(t *testing.T) {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 60, H: 10}, ""); err != nil {
+		t.Fatal(err)
+	}
+	// "aGVsbG8gbXV4" is base64 for "hello mux".
+	h.Paste(1, "printf '\\033]52;c;aGVsbG8gbXV4\\007'\r")
+	waitNotice(t, h, domain.PaneNotice{Pane: 1, Kind: domain.NoticeClipboard, Text: "hello mux"})
+
+	h.Paste(1, "printf '\\007'\r")
+	waitNotice(t, h, domain.PaneNotice{Pane: 1, Kind: domain.NoticeBell})
+}
+
+func TestClipboardTextRefusesReadsAndJunk(t *testing.T) {
+	for _, in := range []string{"52;c;?", "52;c;!!notbase64", "52;c", ""} {
+		if text, ok := clipboardText([]byte(in)); ok {
+			t.Errorf("%q should be refused, got %q", in, text)
+		}
+	}
+	if text, ok := clipboardText([]byte("52;c;aGk=")); !ok || text != "hi" {
+		t.Fatalf("got %q, %v", text, ok)
 	}
 }

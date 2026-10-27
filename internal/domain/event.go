@@ -20,6 +20,12 @@ type SessionsChanged struct {
 	Current SessionID
 }
 
+// ClipboardSet asks the client to put Text on its clipboard, because a
+// program in the client's session copied it.
+type ClipboardSet struct {
+	Text string
+}
+
 // CommandFailed reports a command that could not be carried out.
 type CommandFailed struct {
 	Command Command
@@ -34,5 +40,6 @@ type Detached struct {
 
 func (LayoutChanged) event()   {}
 func (SessionsChanged) event() {}
+func (ClipboardSet) event()    {}
 func (CommandFailed) event()   {}
 func (Detached) event()        {}

@@ -41,21 +41,11 @@ func (w *windowService) openAt(sess *domain.Session, frame domain.Rect) error {
 	return w.start(sess, win, from)
 }
 
-// retitle applies title changes reported for panes, returning the sessions
-// whose windows changed.
-func (w *windowService) retitle(titles map[domain.PaneID]string) []domain.SessionID {
-	var changed []domain.SessionID
-	for pane, title := range titles {
-		sess, ok := w.server.SessionForPane(pane)
-		if !ok {
-			continue
-		}
-		win, _ := sess.WindowForPane(pane)
-		if sess.SetTitle(win.ID, title) {
-			changed = append(changed, sess.ID())
-		}
-	}
-	return changed
+// retitle gives the window showing a pane a new title. It reports whether
+// the title changed.
+func (w *windowService) retitle(sess *domain.Session, pane domain.PaneID, title string) bool {
+	win, ok := sess.WindowForPane(pane)
+	return ok && sess.SetTitle(win.ID, title)
 }
 
 func focusedPane(sess *domain.Session) domain.PaneID {

@@ -101,6 +101,36 @@ func TestServiceUpdatesWindowTitles(t *testing.T) {
 	h.host.retitle(99, "ghost") // unknown panes are ignored
 }
 
+func TestServicePassesClipboardCopiesToViewers(t *testing.T) {
+	h := start(t, newFakeHost())
+	a := h.open() // session 1, pane 1
+	b := h.connect()
+	b.apply(domain.SetArea{Size: domain.Size{W: 80, H: 24}})
+	b.apply(domain.CreateSession{Name: "other"})
+	b.layoutUntil(named("other"))
+
+	h.host.notify(domain.PaneNotice{Pane: 1, Kind: domain.NoticeClipboard, Text: "copied"})
+	for {
+		if ev, ok := a.next().(domain.ClipboardSet); ok {
+			if ev.Text != "copied" {
+				t.Fatalf("clipboard = %q", ev.Text)
+			}
+			break
+		}
+	}
+	h.host.retitle(2, "marker") // b only hears about its own session
+	for {
+		switch ev := b.next().(type) {
+		case domain.ClipboardSet:
+			t.Fatal("a client in another session must not get the copy")
+		case domain.LayoutChanged:
+			if ev.Snapshot.Windows[0].Title == "marker" {
+				return
+			}
+		}
+	}
+}
+
 func TestServiceClosesWindowByID(t *testing.T) {
 	h := start(t, newFakeHost())
 	c := h.open()

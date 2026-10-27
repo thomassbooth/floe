@@ -50,10 +50,8 @@ func (s *Service) Run(ctx context.Context) error {
 			s.paneExited(id)
 		case <-s.host.Changed():
 			s.paneOutput()
-		case <-s.host.TitleChanged():
-			for _, id := range s.windows.retitle(s.host.TakeTitles()) {
-				s.markDirty(id)
-			}
+		case <-s.host.Notices():
+			s.notices(s.host.TakeNotices())
 		}
 		s.publish()
 	}
@@ -278,6 +276,26 @@ func (s *Service) removeSession(sess *domain.Session, cause error) {
 		_ = s.attach(c, next)
 	}
 	s.lifecycle.check()
+}
+
+// notices handles what panes' programs reported.
+func (s *Service) notices(notices []domain.PaneNotice) {
+	for _, n := range notices {
+		sess, ok := s.server.SessionForPane(n.Pane)
+		if !ok {
+			continue
+		}
+		switch n.Kind {
+		case domain.NoticeTitle:
+			if s.windows.retitle(sess, n.Pane, n.Text) {
+				s.markDirty(sess.ID())
+			}
+		case domain.NoticeClipboard:
+			for _, c := range s.server.ClientsOf(sess.ID()) {
+				s.clients.send(c, domain.ClipboardSet{Text: n.Text})
+			}
+		}
+	}
 }
 
 // paneOutput tells the clients viewing changed panes to redraw.

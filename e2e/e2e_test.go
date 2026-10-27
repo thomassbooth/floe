@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"encoding/base64"
 	"fmt"
 	"image/color"
 	"io"
@@ -44,6 +45,8 @@ type term struct {
 	mu   sync.Mutex
 	emu  *vt.Emulator
 	done chan struct{}
+	// clipboard is what mux last copied to the outer terminal's clipboard.
+	clipboard string
 }
 
 func launch(t *testing.T, w, h int) *term {
@@ -87,6 +90,16 @@ func launchWith(t *testing.T, o options) *term {
 	if o.background != nil {
 		tm.emu.SetDefaultBackgroundColor(o.background)
 	}
+	// Play the outer terminal's clipboard: keep what mux copies with OSC 52.
+	tm.emu.RegisterOscHandler(52, func(data []byte) bool {
+		parts := strings.SplitN(string(data), ";", 3)
+		if len(parts) == 3 {
+			if text, err := base64.StdEncoding.DecodeString(parts[2]); err == nil {
+				tm.clipboard = string(text) // runs inside Write, under tm.mu
+			}
+		}
+		return true
+	})
 
 	go func() {
 		buf := make([]byte, 32*1024)
