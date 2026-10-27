@@ -1,7 +1,7 @@
 // Package remote carries the service to clients in other processes. The
 // server side bridges each connection to a client of the service running in
 // its own process; the client side stands in for the service in the UI's
-// process. Both speak the wire protocol.
+// process. Both speak the mux protocol.
 package remote
 
 import (
@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
-	"github.com/thomasbooth/multiplexer/internal/wire"
+	"github.com/thomasbooth/multiplexer/internal/protocol"
 )
 
 // LocalClient is a client of the service in the server's process.
@@ -42,7 +42,7 @@ type Server struct {
 	drainTimeout time.Duration
 
 	mu     sync.Mutex
-	conns  map[*wire.Conn]bool
+	conns  map[*protocol.Conn]bool
 	closed bool
 	wg     sync.WaitGroup
 }
@@ -55,7 +55,7 @@ func NewServer(connect func() LocalClient, build string) *Server {
 		build:        build,
 		helloTimeout: defaultHelloTimeout,
 		drainTimeout: defaultDrainTimeout,
-		conns:        make(map[*wire.Conn]bool),
+		conns:        make(map[*protocol.Conn]bool),
 	}
 }
 
@@ -75,7 +75,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 			}
 			return fmt.Errorf("accept: %w", err)
 		}
-		conn := wire.NewConn(c)
+		conn := protocol.NewConn(c)
 		if !s.track(conn) {
 			_ = conn.Close()
 			return nil
@@ -87,7 +87,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	}
 }
 
-func (s *Server) track(conn *wire.Conn) bool {
+func (s *Server) track(conn *protocol.Conn) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -97,7 +97,7 @@ func (s *Server) track(conn *wire.Conn) bool {
 	return true
 }
 
-func (s *Server) untrack(conn *wire.Conn) {
+func (s *Server) untrack(conn *protocol.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.conns, conn)
@@ -129,7 +129,7 @@ func (s *Server) shutdown() {
 
 // serve runs one connection: the handshake, then requests until the client
 // goes away.
-func (s *Server) serve(conn *wire.Conn, c net.Conn) {
+func (s *Server) serve(conn *protocol.Conn, c net.Conn) {
 	defer conn.Close()
 	_ = c.SetReadDeadline(time.Now().Add(s.helloTimeout))
 	if err := s.greet(conn); err != nil {
@@ -155,14 +155,14 @@ func (s *Server) serve(conn *wire.Conn, c net.Conn) {
 			return
 		}
 		switch m := m.(type) {
-		case wire.Apply:
+		case protocol.Apply:
 			client.Apply(m.Command)
-		case wire.GridRequest:
+		case protocol.GridRequest:
 			g, ok := client.Grid(m.Pane, m.Scroll)
-			err = conn.Send(wire.GridReply{ID: m.ID, Grid: g, OK: ok})
-		case wire.StateRequest:
+			err = conn.Send(protocol.GridReply{ID: m.ID, Grid: g, OK: ok})
+		case protocol.StateRequest:
 			st, ok := client.State(m.Pane)
-			err = conn.Send(wire.StateReply{ID: m.ID, State: st, OK: ok})
+			err = conn.Send(protocol.StateReply{ID: m.ID, State: st, OK: ok})
 		default:
 			err = fmt.Errorf("unexpected %T", m)
 		}
@@ -173,22 +173,22 @@ func (s *Server) serve(conn *wire.Conn, c net.Conn) {
 }
 
 // greet checks the client's Hello and answers it.
-func (s *Server) greet(conn *wire.Conn) error {
+func (s *Server) greet(conn *protocol.Conn) error {
 	m, err := conn.Receive()
 	if err != nil {
 		return err
 	}
-	hello, ok := m.(wire.Hello)
+	hello, ok := m.(protocol.Hello)
 	var refusal string
 	switch {
 	case !ok:
 		refusal = fmt.Sprintf("expected a hello, got %T", m)
-	case hello.Protocol != wire.Protocol:
-		refusal = fmt.Sprintf("server speaks protocol %d, client %d", wire.Protocol, hello.Protocol)
+	case hello.Version != protocol.Version:
+		refusal = fmt.Sprintf("server speaks protocol %d, client %d", protocol.Version, hello.Version)
 	case hello.Build != s.build:
 		refusal = ErrOtherBuild.Error()
 	}
-	if err := conn.Send(wire.Welcome{Err: refusal}); err != nil {
+	if err := conn.Send(protocol.Welcome{Err: refusal}); err != nil {
 		return err
 	}
 	if refusal != "" {
@@ -199,9 +199,9 @@ func (s *Server) greet(conn *wire.Conn) error {
 
 // forwardEvents sends the client's events until Detached, the last one,
 // then closes the connection: nothing more will come.
-func forwardEvents(conn *wire.Conn, client LocalClient) {
+func forwardEvents(conn *protocol.Conn, client LocalClient) {
 	for ev := range client.Events() {
-		if err := conn.Send(wire.Event{Event: ev}); err != nil {
+		if err := conn.Send(protocol.Event{Event: ev}); err != nil {
 			_ = conn.Close()
 			return
 		}
@@ -210,11 +210,11 @@ func forwardEvents(conn *wire.Conn, client LocalClient) {
 }
 
 // forwardChanges passes on change signals until done is closed.
-func forwardChanges(conn *wire.Conn, client LocalClient, done <-chan struct{}) {
+func forwardChanges(conn *protocol.Conn, client LocalClient, done <-chan struct{}) {
 	for {
 		select {
 		case <-client.Changed():
-			if err := conn.Send(wire.Changed{}); err != nil {
+			if err := conn.Send(protocol.Changed{}); err != nil {
 				return
 			}
 		case <-done:

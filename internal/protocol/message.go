@@ -1,13 +1,14 @@
-// Package wire is the protocol between a mux client and the mux server: the
-// messages they exchange over a connection and how those are encoded. It
-// knows nothing about sockets or processes; any byte stream will do.
-package wire
+// Package protocol is how a mux client and the mux server talk: the
+// messages they exchange over a connection and how those are encoded as
+// bytes. It knows nothing about sockets or processes; any byte stream will
+// do.
+package protocol
 
 import "github.com/thomasbooth/multiplexer/internal/domain"
 
-// Protocol is the version of the messages below. A client and server only
+// Version is the version of the messages below. A client and server only
 // talk when theirs match.
-const Protocol = 1
+const Version = 1
 
 // Message is anything sent over a connection.
 type Message interface {
@@ -17,8 +18,8 @@ type Message interface {
 // Hello is the first message a client sends. Build identifies the mux
 // binary, so a client never talks to a server running different code.
 type Hello struct {
-	Protocol int
-	Build    string
+	Version int
+	Build   string
 }
 
 // Welcome answers Hello. Err is set when the server refuses the client; it

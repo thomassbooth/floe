@@ -1,4 +1,4 @@
-package wire
+package protocol
 
 import (
 	"errors"
@@ -139,7 +139,7 @@ func TestGridsAndStatesCross(t *testing.T) {
 		CursorVisible: true,
 	}
 	for _, m := range []Message{
-		Hello{Protocol: Protocol, Build: "abc"},
+		Hello{Version: Version, Build: "abc"},
 		Welcome{Err: "different build"},
 		Changed{},
 		GridRequest{ID: 1, Pane: 2, Scroll: 3},

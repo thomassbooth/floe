@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 
 	"github.com/thomasbooth/multiplexer/internal/domain"
+	"github.com/thomasbooth/multiplexer/internal/protocol"
 	"github.com/thomasbooth/multiplexer/internal/queue"
-	"github.com/thomasbooth/multiplexer/internal/wire"
 )
 
 // ErrLostServer is why a client is detached when its connection to the
@@ -20,10 +20,10 @@ var ErrLostServer = errors.New("lost the connection to the mux server")
 // UI needs, over a connection to the server. Its methods are safe to call
 // from any goroutine.
 type Client struct {
-	conn *wire.Conn
+	conn *protocol.Conn
 
 	// out holds messages waiting to be written, so Apply never blocks.
-	out *queue.Unbounded[wire.Message]
+	out *queue.Unbounded[protocol.Message]
 	// in holds events waiting for the UI to take them.
 	in      *queue.Unbounded[domain.Event]
 	events  chan domain.Event
@@ -31,7 +31,7 @@ type Client struct {
 
 	mu      sync.Mutex
 	nextID  uint64
-	waiting map[uint64]chan wire.Message
+	waiting map[uint64]chan protocol.Message
 
 	// closing is set by Close, so the connection ending is not a failure.
 	closing atomic.Bool
@@ -44,18 +44,18 @@ type Client struct {
 // connected client. It fails with ErrOtherBuild when the server runs a
 // different build.
 func Dial(rwc io.ReadWriteCloser, build string) (*Client, error) {
-	conn := wire.NewConn(rwc)
+	conn := protocol.NewConn(rwc)
 	if err := handshake(conn, build); err != nil {
 		_ = conn.Close()
 		return nil, err
 	}
 	c := &Client{
 		conn:    conn,
-		out:     queue.New[wire.Message](),
+		out:     queue.New[protocol.Message](),
 		in:      queue.New[domain.Event](),
 		events:  make(chan domain.Event),
 		changed: make(chan struct{}, 1),
-		waiting: make(map[uint64]chan wire.Message),
+		waiting: make(map[uint64]chan protocol.Message),
 		quit:    make(chan struct{}),
 		done:    make(chan struct{}),
 	}
@@ -65,15 +65,15 @@ func Dial(rwc io.ReadWriteCloser, build string) (*Client, error) {
 	return c, nil
 }
 
-func handshake(conn *wire.Conn, build string) error {
-	if err := conn.Send(wire.Hello{Protocol: wire.Protocol, Build: build}); err != nil {
+func handshake(conn *protocol.Conn, build string) error {
+	if err := conn.Send(protocol.Hello{Version: protocol.Version, Build: build}); err != nil {
 		return fmt.Errorf("greet the mux server: %w", err)
 	}
 	m, err := conn.Receive()
 	if err != nil {
 		return fmt.Errorf("greet the mux server: %w", err)
 	}
-	welcome, ok := m.(wire.Welcome)
+	welcome, ok := m.(protocol.Welcome)
 	switch {
 	case !ok:
 		return fmt.Errorf("greet the mux server: unexpected %T", m)
@@ -87,7 +87,7 @@ func handshake(conn *wire.Conn, build string) error {
 
 // Apply queues a command for the server. It never blocks.
 func (c *Client) Apply(cmd domain.Command) {
-	c.out.Push(wire.Apply{Command: cmd})
+	c.out.Push(protocol.Apply{Command: cmd})
 }
 
 // Events receives everything the server tells this client. It is closed
@@ -101,25 +101,25 @@ func (c *Client) Changed() <-chan struct{} { return c.changed }
 // Grid asks the server for a pane's screen, scrolled scroll lines up into
 // its history.
 func (c *Client) Grid(id domain.PaneID, scroll int) (domain.Grid, bool) {
-	m, ok := c.ask(func(req uint64) wire.Message {
-		return wire.GridRequest{ID: req, Pane: id, Scroll: scroll}
+	m, ok := c.ask(func(req uint64) protocol.Message {
+		return protocol.GridRequest{ID: req, Pane: id, Scroll: scroll}
 	})
 	if !ok {
 		return domain.Grid{}, false
 	}
-	r := m.(wire.GridReply)
+	r := m.(protocol.GridReply)
 	return r.Grid, r.OK
 }
 
 // State asks the server about a pane's history and input modes.
 func (c *Client) State(id domain.PaneID) (domain.PaneState, bool) {
-	m, ok := c.ask(func(req uint64) wire.Message {
-		return wire.StateRequest{ID: req, Pane: id}
+	m, ok := c.ask(func(req uint64) protocol.Message {
+		return protocol.StateRequest{ID: req, Pane: id}
 	})
 	if !ok {
 		return domain.PaneState{}, false
 	}
-	r := m.(wire.StateReply)
+	r := m.(protocol.StateReply)
 	return r.State, r.OK
 }
 
@@ -135,8 +135,8 @@ func (c *Client) Close() {
 
 // ask sends the request made by build and waits for its reply. It returns
 // false if the connection ends first.
-func (c *Client) ask(build func(req uint64) wire.Message) (wire.Message, bool) {
-	reply := make(chan wire.Message, 1)
+func (c *Client) ask(build func(req uint64) protocol.Message) (protocol.Message, bool) {
+	reply := make(chan protocol.Message, 1)
 	c.mu.Lock()
 	c.nextID++
 	req := c.nextID
@@ -158,7 +158,7 @@ func (c *Client) ask(build func(req uint64) wire.Message) (wire.Message, bool) {
 }
 
 // answer hands a reply to whoever asked for it.
-func (c *Client) answer(req uint64, m wire.Message) {
+func (c *Client) answer(req uint64, m protocol.Message) {
 	c.mu.Lock()
 	reply, ok := c.waiting[req]
 	c.mu.Unlock()
@@ -178,17 +178,17 @@ func (c *Client) read() {
 			break
 		}
 		switch m := m.(type) {
-		case wire.Event:
+		case protocol.Event:
 			c.in.Push(m.Event)
 			_, detached = m.Event.(domain.Detached)
-		case wire.Changed:
+		case protocol.Changed:
 			select {
 			case c.changed <- struct{}{}:
 			default:
 			}
-		case wire.GridReply:
+		case protocol.GridReply:
 			c.answer(m.ID, m)
-		case wire.StateReply:
+		case protocol.StateReply:
 			c.answer(m.ID, m)
 		}
 	}
