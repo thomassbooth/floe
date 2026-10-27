@@ -69,6 +69,38 @@ func TestServiceOpensWindowAtFrame(t *testing.T) {
 	}
 }
 
+func TestServiceOpensNewWindowsInTheFocusedWindowsDirectory(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right})
+	c.layoutUntil(windows(2))
+	c.apply(domain.NewWindow{Frame: domain.Rect{X: 20, Y: 6, W: 40, H: 12}})
+	c.layoutUntil(windows(3))
+
+	h.host.mu.Lock()
+	defer h.host.mu.Unlock()
+	if d := h.host.spawnDirs[1]; d != "" {
+		t.Fatalf("the first window has nothing to inherit, got %q", d)
+	}
+	if d := h.host.spawnDirs[2]; d != "/dir/of/1" {
+		t.Fatalf("the split should start where window 1 is, got %q", d)
+	}
+	if d := h.host.spawnDirs[3]; d != "/dir/of/2" {
+		t.Fatalf("the new window should start where window 2 is, got %q", d)
+	}
+}
+
+func TestServiceUpdatesWindowTitles(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	h.host.retitle(1, "vim")
+	snap := c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Title == "vim" })
+	if snap.Windows[0].Title != "vim" {
+		t.Fatalf("title = %q", snap.Windows[0].Title)
+	}
+	h.host.retitle(99, "ghost") // unknown panes are ignored
+}
+
 func TestServiceClosesWindowByID(t *testing.T) {
 	h := start(t, newFakeHost())
 	c := h.open()

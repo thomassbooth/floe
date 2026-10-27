@@ -24,6 +24,10 @@ import (
 // is killed.
 const killGrace = 2 * time.Second
 
+// titleInterval is how often titles are checked for a new foreground
+// program, which the terminal gives no notice of.
+const titleInterval = 500 * time.Millisecond
+
 // Options configures the processes a Host starts.
 type Options struct {
 	// Shell is the program each pane runs. It is started as a login shell.
@@ -34,32 +38,69 @@ type Options struct {
 
 // Host runs one shell per pane.
 type Host struct {
-	opts    Options
-	mu      sync.Mutex
-	panes   map[domain.PaneID]*pane
-	dirty   map[domain.PaneID]struct{}
-	exited  chan domain.PaneID
-	changed chan struct{}
+	opts      Options
+	shellName string
+	mu        sync.Mutex
+	panes     map[domain.PaneID]*pane
+	dirty     map[domain.PaneID]struct{}
+	exited    chan domain.PaneID
+	changed   chan struct{}
+
+	// titles is the title last reported for each pane, and newTitles the
+	// changes not yet taken.
+	titles       map[domain.PaneID]string
+	newTitles    map[domain.PaneID]string
+	titleChanged chan struct{}
+	// poke wakes the title watcher early, when a program sets a title.
+	poke chan struct{}
+	stop chan struct{}
+	once sync.Once
 }
 
-// NewHost returns a host with no panes.
+// NewHost returns a host with no panes. Call Close when done with it.
 func NewHost(opts Options) *Host {
-	return &Host{
-		opts:    opts,
-		panes:   make(map[domain.PaneID]*pane),
-		dirty:   make(map[domain.PaneID]struct{}),
-		exited:  make(chan domain.PaneID, 64),
-		changed: make(chan struct{}, 1),
+	h := &Host{
+		opts:         opts,
+		shellName:    filepath.Base(opts.Shell),
+		panes:        make(map[domain.PaneID]*pane),
+		dirty:        make(map[domain.PaneID]struct{}),
+		exited:       make(chan domain.PaneID, 64),
+		changed:      make(chan struct{}, 1),
+		titles:       make(map[domain.PaneID]string),
+		newTitles:    make(map[domain.PaneID]string),
+		titleChanged: make(chan struct{}, 1),
+		poke:         make(chan struct{}, 1),
+		stop:         make(chan struct{}),
+	}
+	go h.watchTitles()
+	return h
+}
+
+// Close stops the host's background work and ends every pane.
+func (h *Host) Close() {
+	h.once.Do(func() { close(h.stop) })
+	h.mu.Lock()
+	panes := make([]*pane, 0, len(h.panes))
+	for _, p := range h.panes {
+		panes = append(panes, p)
+	}
+	h.mu.Unlock()
+	for _, p := range panes {
+		p.kill()
 	}
 }
 
-// Spawn starts a shell for a pane.
-func (h *Host) Spawn(id domain.PaneID, size domain.Size) error {
+// Spawn starts a shell for a pane in directory dir, or in mux's own
+// directory when dir is empty or no longer exists.
+func (h *Host) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 	size = clampSize(size)
 
 	cmd := exec.Command(h.opts.Shell)
 	cmd.Args[0] = "-" + filepath.Base(h.opts.Shell)
 	cmd.Env = append(os.Environ(), h.opts.Env...)
+	if info, err := os.Stat(dir); dir != "" && err == nil && info.IsDir() {
+		cmd.Dir = dir
+	}
 
 	f, err := pty.StartWithSize(cmd, winsize(size))
 	if err != nil {
@@ -73,8 +114,20 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size) error {
 		input: queue.New[[]byte](),
 		done:  make(chan struct{}),
 	}
+	// Callbacks run inside emu.Write with p.mu held, so they only record
+	// and poke; they never take the host lock.
+	p.emu.SetCallbacks(vt.Callbacks{
+		Title: func(t string) {
+			p.oscTitle = t
+			h.pokeTitles()
+		},
+		WorkingDirectory: func(dir string) {
+			p.oscDir = dir
+		},
+	})
 	h.mu.Lock()
 	h.panes[id] = p
+	h.titles[id] = h.shellName
 	h.mu.Unlock()
 
 	go p.readOutput(func() { h.markChanged(id) })
@@ -85,6 +138,8 @@ func (h *Host) Spawn(id domain.PaneID, size domain.Size) error {
 		p.shutdown()
 		h.mu.Lock()
 		delete(h.panes, id)
+		delete(h.titles, id)
+		delete(h.newTitles, id)
 		h.mu.Unlock()
 		h.exited <- id
 	}()
@@ -130,6 +185,88 @@ func (h *Host) Grid(id domain.PaneID) (domain.Grid, bool) {
 		return domain.Grid{}, false
 	}
 	return p.grid(), true
+}
+
+// WorkingDir returns the directory a pane's shell is in: the one it last
+// reported, or else what the operating system says.
+func (h *Host) WorkingDir(id domain.PaneID) (string, bool) {
+	p, ok := h.pane(id)
+	if !ok {
+		return "", false
+	}
+	p.mu.Lock()
+	dir := p.oscDir
+	p.mu.Unlock()
+	if dir != "" {
+		return dir, true
+	}
+	return workingDir(p.cmd.Process.Pid)
+}
+
+// TitleChanged implements service.PaneHost.
+func (h *Host) TitleChanged() <-chan struct{} { return h.titleChanged }
+
+// TakeTitles implements service.PaneHost.
+func (h *Host) TakeTitles() map[domain.PaneID]string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := h.newTitles
+	h.newTitles = make(map[domain.PaneID]string)
+	return out
+}
+
+func (h *Host) pokeTitles() {
+	select {
+	case h.poke <- struct{}{}:
+	default:
+	}
+}
+
+// watchTitles keeps each pane's title current, reporting changes.
+func (h *Host) watchTitles() {
+	tick := time.NewTicker(titleInterval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-h.stop:
+			return
+		case <-tick.C:
+		case <-h.poke:
+		}
+		h.refreshTitles()
+	}
+}
+
+func (h *Host) refreshTitles() {
+	h.mu.Lock()
+	panes := make(map[domain.PaneID]*pane, len(h.panes))
+	for id, p := range h.panes {
+		panes[id] = p
+	}
+	h.mu.Unlock()
+
+	// Work out titles without the host lock: it involves system calls.
+	titles := make(map[domain.PaneID]string, len(panes))
+	for id, p := range panes {
+		titles[id] = p.title(h.shellName)
+	}
+
+	h.mu.Lock()
+	changed := false
+	for id, t := range titles {
+		if _, alive := h.panes[id]; alive && h.titles[id] != t {
+			h.titles[id] = t
+			h.newTitles[id] = t
+			changed = true
+		}
+	}
+	h.mu.Unlock()
+	if changed {
+		select {
+		case h.titleChanged <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // Exited implements service.PaneHost.
@@ -179,13 +316,34 @@ type pane struct {
 	cmd *exec.Cmd
 	pty *os.File
 
-	mu  sync.Mutex // guards emu
+	mu  sync.Mutex // guards emu and the fields the emulator reports into
 	emu *vt.Emulator
+	// oscTitle and oscDir are the title and directory the pane's programs
+	// last reported with escape sequences, if any.
+	oscTitle string
+	oscDir   string
 
 	input    *queue.Unbounded[[]byte]
 	done     chan struct{}
 	stopOnce sync.Once
 	killOnce sync.Once
+}
+
+// title is what the pane is showing: the program in the foreground when it
+// is not the shell, else the title the shell set, else the shell's name.
+func (p *pane) title(shellName string) string {
+	p.mu.Lock()
+	osc := p.oscTitle
+	p.mu.Unlock()
+	if pgid, ok := foreground(p.pty); ok && pgid != p.cmd.Process.Pid {
+		if name, ok := processName(pgid); ok {
+			return name
+		}
+	}
+	if osc != "" {
+		return osc
+	}
+	return shellName
 }
 
 func (p *pane) readOutput(changed func()) {

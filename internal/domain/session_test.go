@@ -415,6 +415,16 @@ func TestSessionSnapshot(t *testing.T) {
 	}
 }
 
+func TestSessionSetTitle(t *testing.T) {
+	s := newSession(t)
+	if !s.SetTitle(1, "vim") || s.SetTitle(1, "vim") || s.SetTitle(9, "x") {
+		t.Fatal("SetTitle should report changes only")
+	}
+	if got := s.Snapshot().Windows[0].Title; got != "vim" {
+		t.Fatalf("title = %q", got)
+	}
+}
+
 func TestKeyString(t *testing.T) {
 	tests := map[string]Key{
 		"ctrl+b":     {Code: 'b', Mod: ModCtrl},

@@ -1,6 +1,8 @@
 package terminal
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -53,13 +55,15 @@ func waitExited(t *testing.T, h *Host, id domain.PaneID) {
 	}
 }
 
-func newTestHost() *Host {
-	return NewHost(Options{Shell: "/bin/sh", Env: []string{"PS1=$ ", "ENV="}})
+func newTestHost(t *testing.T) *Host {
+	h := NewHost(Options{Shell: "/bin/sh", Env: []string{"PS1=$ ", "ENV="}})
+	t.Cleanup(h.Close)
+	return h
 }
 
 func TestHostRunsShellAndTypesKeys(t *testing.T) {
-	h := newTestHost()
-	if err := h.Spawn(1, domain.Size{W: 40, H: 10}); err != nil {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 40, H: 10}, ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { h.Kill(1) })
@@ -81,8 +85,8 @@ func TestHostRunsShellAndTypesKeys(t *testing.T) {
 }
 
 func TestHostResizeReachesTheShell(t *testing.T) {
-	h := newTestHost()
-	if err := h.Spawn(1, domain.Size{W: 40, H: 10}); err != nil {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 40, H: 10}, ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { h.Kill(1) })
@@ -96,8 +100,8 @@ func TestHostResizeReachesTheShell(t *testing.T) {
 }
 
 func TestHostReportsShellExit(t *testing.T) {
-	h := newTestHost()
-	if err := h.Spawn(7, domain.Size{W: 40, H: 10}); err != nil {
+	h := newTestHost(t)
+	if err := h.Spawn(7, domain.Size{W: 40, H: 10}, ""); err != nil {
 		t.Fatal(err)
 	}
 	h.Paste(7, "exit\r")
@@ -105,8 +109,8 @@ func TestHostReportsShellExit(t *testing.T) {
 }
 
 func TestHostKillEndsShell(t *testing.T) {
-	h := newTestHost()
-	if err := h.Spawn(3, domain.Size{W: 40, H: 10}); err != nil {
+	h := newTestHost(t)
+	if err := h.Spawn(3, domain.Size{W: 40, H: 10}, ""); err != nil {
 		t.Fatal(err)
 	}
 	h.Kill(3)
@@ -115,7 +119,71 @@ func TestHostKillEndsShell(t *testing.T) {
 
 func TestHostSpawnFailure(t *testing.T) {
 	h := NewHost(Options{Shell: "/nonexistent/shell"})
-	if err := h.Spawn(1, domain.Size{W: 10, H: 10}); err == nil {
+	t.Cleanup(h.Close)
+	if err := h.Spawn(1, domain.Size{W: 10, H: 10}, ""); err == nil {
 		t.Fatal("expected an error")
 	}
+}
+
+func TestHostStartsInDirectoryAndReportsIt(t *testing.T) {
+	h := newTestHost(t)
+	dir, _ := filepath.EvalSymlinks(t.TempDir())
+	// Wide enough that the long temporary path does not wrap.
+	if err := h.Spawn(1, domain.Size{W: 250, H: 10}, dir); err != nil {
+		t.Fatal(err)
+	}
+	h.Paste(1, "pwd\r")
+	waitForText(t, h, 1, dir)
+
+	sub := filepath.Join(dir, "sub")
+	os.Mkdir(sub, 0o755)
+	h.Paste(1, "cd sub\r")
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		got, ok := h.WorkingDir(1)
+		if ok && got == sub {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("working dir = %q, %v; want %q", got, ok, sub)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	// A directory that no longer exists falls back to the default.
+	if err := h.Spawn(2, domain.Size{W: 60, H: 10}, filepath.Join(dir, "gone")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHostTitleFollowsForegroundProgramAndShellTitle(t *testing.T) {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 60, H: 10}, ""); err != nil {
+		t.Fatal(err)
+	}
+	waitTitle := func(want string) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			select {
+			case <-h.TitleChanged():
+				if got, ok := h.TakeTitles()[1]; ok && got == want {
+					return
+				}
+			case <-time.After(50 * time.Millisecond):
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("title never became %q", want)
+			}
+		}
+	}
+
+	h.Paste(1, "sleep 30\r")
+	waitTitle("sleep")
+	h.SendKey(1, domain.Key{Code: 'c', Mod: domain.ModCtrl})
+	waitTitle("sh")
+
+	// A title set by the shell itself wins over the shell's name.
+	h.Paste(1, "printf '\\033]2;my title\\007'\r")
+	waitTitle("my title")
 }

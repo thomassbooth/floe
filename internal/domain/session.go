@@ -238,6 +238,16 @@ func (s *Session) coveringSide(gone Rect, side Direction) ([]WindowID, bool) {
 	return ids, at == hi && len(ids) > 0
 }
 
+// SetTitle changes a window's title. It reports whether it changed.
+func (s *Session) SetTitle(id WindowID, title string) bool {
+	w, ok := s.windows[id]
+	if !ok || w.Title == title {
+		return false
+	}
+	w.Title = title
+	return true
+}
+
 // WindowForPane returns the window showing a pane.
 func (s *Session) WindowForPane(p PaneID) (Window, bool) {
 	id, ok := s.panes[p]

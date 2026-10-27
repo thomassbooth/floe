@@ -5,8 +5,11 @@ import "github.com/thomasbooth/multiplexer/internal/domain"
 // PaneHost runs the processes behind panes. The infrastructure layer
 // implements it.
 type PaneHost interface {
-	// Spawn starts a pane's process with a screen of the given size.
-	Spawn(id domain.PaneID, size domain.Size) error
+	// Spawn starts a pane's process with a screen of the given size, in
+	// directory dir, or a default directory when dir is empty.
+	Spawn(id domain.PaneID, size domain.Size, dir string) error
+	// WorkingDir returns the directory a pane's process is in.
+	WorkingDir(id domain.PaneID) (string, bool)
 	Resize(id domain.PaneID, size domain.Size)
 	SendKey(id domain.PaneID, key domain.Key)
 	Paste(id domain.PaneID, text string)
@@ -23,4 +26,10 @@ type PaneHost interface {
 	// TakeChanged returns the panes whose screens changed since it was last
 	// called.
 	TakeChanged() []domain.PaneID
+	// TitleChanged receives a signal when any pane's title changes, such
+	// as when a new program starts in it. Signals coalesce.
+	TitleChanged() <-chan struct{}
+	// TakeTitles returns the panes whose titles changed since it was last
+	// called, with their new titles.
+	TakeTitles() map[domain.PaneID]string
 }

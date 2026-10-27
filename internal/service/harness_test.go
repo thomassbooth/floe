@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +21,10 @@ type fakeHost struct {
 	exited   chan domain.PaneID
 	changed  chan struct{}
 	dirty    []domain.PaneID
+
+	spawnDirs    map[domain.PaneID]string
+	titles       map[domain.PaneID]string
+	titleChanged chan struct{}
 }
 
 func newFakeHost() *fakeHost {
@@ -29,17 +34,47 @@ func newFakeHost() *fakeHost {
 		pastes:  map[domain.PaneID][]string{},
 		exited:  make(chan domain.PaneID, 16),
 		changed: make(chan struct{}, 1),
+
+		spawnDirs:    map[domain.PaneID]string{},
+		titles:       map[domain.PaneID]string{},
+		titleChanged: make(chan struct{}, 1),
 	}
 }
 
-func (h *fakeHost) Spawn(id domain.PaneID, size domain.Size) error {
+func (h *fakeHost) Spawn(id domain.PaneID, size domain.Size, dir string) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.spawnErr != nil {
 		return h.spawnErr
 	}
 	h.sizes[id] = size
+	h.spawnDirs[id] = dir
 	return nil
+}
+
+func (h *fakeHost) WorkingDir(id domain.PaneID) (string, bool) {
+	return fmt.Sprintf("/dir/of/%d", id), true
+}
+
+func (h *fakeHost) TitleChanged() <-chan struct{} { return h.titleChanged }
+
+func (h *fakeHost) TakeTitles() map[domain.PaneID]string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := h.titles
+	h.titles = map[domain.PaneID]string{}
+	return out
+}
+
+// retitle pretends a pane's title changed.
+func (h *fakeHost) retitle(id domain.PaneID, title string) {
+	h.mu.Lock()
+	h.titles[id] = title
+	h.mu.Unlock()
+	select {
+	case h.titleChanged <- struct{}{}:
+	default:
+	}
 }
 
 func (h *fakeHost) Resize(id domain.PaneID, size domain.Size) {

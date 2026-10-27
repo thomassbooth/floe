@@ -22,28 +22,59 @@ func newWindowService(server *domain.Server, host PaneHost, layout *layoutServic
 // open splits the session's focused window, or fills the screen if there is
 // none, and starts a pane sized to fit.
 func (w *windowService) open(sess *domain.Session, dir domain.Direction) error {
+	from := focusedPane(sess)
 	win, err := sess.OpenWindow(w.title, dir, w.server.NewPaneID())
 	if err != nil {
 		return err
 	}
-	return w.start(sess, win)
+	return w.start(sess, win, from)
 }
 
 // openAt adds a window at frame, on top of the others, and starts a pane
 // sized to fit.
 func (w *windowService) openAt(sess *domain.Session, frame domain.Rect) error {
+	from := focusedPane(sess)
 	win, err := sess.OpenAt(w.title, w.server.NewPaneID(), frame)
 	if err != nil {
 		return err
 	}
-	return w.start(sess, win)
+	return w.start(sess, win, from)
+}
+
+// retitle applies title changes reported for panes, returning the sessions
+// whose windows changed.
+func (w *windowService) retitle(titles map[domain.PaneID]string) []domain.SessionID {
+	var changed []domain.SessionID
+	for pane, title := range titles {
+		sess, ok := w.server.SessionForPane(pane)
+		if !ok {
+			continue
+		}
+		win, _ := sess.WindowForPane(pane)
+		if sess.SetTitle(win.ID, title) {
+			changed = append(changed, sess.ID())
+		}
+	}
+	return changed
+}
+
+func focusedPane(sess *domain.Session) domain.PaneID {
+	if win, ok := sess.Focused(); ok {
+		return win.Pane
+	}
+	return 0
 }
 
 // start runs the pane for a newly opened window, closing the window again
-// if the pane cannot start.
-func (w *windowService) start(sess *domain.Session, win domain.Window) error {
+// if the pane cannot start. The pane starts in the directory of the window
+// that was focused before, so new windows open where you were working.
+func (w *windowService) start(sess *domain.Session, win domain.Window, from domain.PaneID) error {
+	var dir string
+	if from != 0 {
+		dir, _ = w.host.WorkingDir(from)
+	}
 	size := w.layout.contentSize(sess, win.ID)
-	if err := w.host.Spawn(win.Pane, size); err != nil {
+	if err := w.host.Spawn(win.Pane, size, dir); err != nil {
 		_ = sess.CloseWindow(win.ID)
 		return err
 	}

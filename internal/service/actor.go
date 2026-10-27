@@ -50,6 +50,10 @@ func (s *Service) Run(ctx context.Context) error {
 			s.paneExited(id)
 		case <-s.host.Changed():
 			s.paneOutput()
+		case <-s.host.TitleChanged():
+			for _, id := range s.windows.retitle(s.host.TakeTitles()) {
+				s.markDirty(id)
+			}
 		}
 		s.publish()
 	}

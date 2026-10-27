@@ -51,6 +51,7 @@ func run() error {
 		Shell: shell,
 		Env:   []string{"TERM=xterm-256color", "COLORTERM=truecolor"},
 	})
+	defer host.Close()
 	svc := service.New(host, service.Options{Title: filepath.Base(shell)})
 
 	ctx, cancel := context.WithCancel(context.Background())
