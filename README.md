@@ -5,22 +5,8 @@ snap them to the edges of the screen, or tidy them into a grid with one key.
 Sessions run in a background server, so closing your terminal never stops
 your programs: run `floe` again and everything is where you left it.
 
-```
-╭─ 1 sh ──────────────────────── □ × ─╮╭─ 2 sh ──────────────────────── □ × ─╮
-│-sh-3.2$ echo hello from floe        ││-sh-3.2$ ls /                        │
-│hello from floe                      ││Applications    private              │
-│-sh-3.2$                             ││bin             run                  │
-│                                     ││cores           sbin                 │
-│                                     ││dev             System               │
-│                                     ││etc             tmp                  │
-│                                     ││home            Users                │
-│                                     ││Library         usr                  │
-│                                     ││nix             var                  │
-│                                     ││opt             Volumes              │
-│                                     ││-sh-3.2$                             │
-╰─────────────────────────────────────╯╰─────────────────────────────────────╯
- work   1 sh  2 sh                                    arrange   ctrl+b prefix
-```
+<img width="1189" height="695" alt="image" src="https://github.com/user-attachments/assets/4be1d43d-c097-401f-b738-1fb77e90bee3" />
+
 
 ## Features
 
