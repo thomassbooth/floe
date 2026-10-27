@@ -1,0 +1,50 @@
+# Builds and publishes a release when a v* tag is pushed; see
+# .github/workflows/release.yml. Try it locally without publishing:
+#   goreleaser release --snapshot --clean
+version: 2
+project_name: floe
+
+builds:
+  - main: ./cmd/floe
+    binary: floe
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version=v{{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [README.md, LICENSE]
+
+release:
+  github:
+    owner: thomassbooth
+    name: floe
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+
+homebrew_casks:
+  - name: floe
+    homepage: https://github.com/thomassbooth/floe
+    description: Terminal multiplexer with free-floating windows and sessions that outlive the terminal
+    license: MIT
+    repository:
+      owner: thomassbooth
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_msg_template: "floe {{ .Tag }}"
+    hooks:
+      post:
+        # The binary is not notarized, so macOS would refuse to run it.
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/floe"]
+          end

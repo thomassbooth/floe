@@ -52,15 +52,25 @@ your programs: run `floe` again and everything is where you left it.
 
 ## Install
 
-floe runs on macOS and Linux. Building it needs Go 1.26 or newer.
+floe runs on macOS and Linux.
+
+**macOS, with Homebrew:**
+
+```sh
+brew install thomassbooth/tap/floe
+```
+
+**Linux, or macOS without Homebrew:** download the archive for your system
+from the [latest release](https://github.com/thomassbooth/floe/releases/latest),
+unpack it and put `floe` somewhere on your `PATH`.
+
+**From source,** with Go 1.26 or newer:
 
 ```sh
 git clone https://github.com/thomassbooth/floe.git
 cd floe
 go build -o floe ./cmd/floe
 ```
-
-Then put `floe` somewhere on your `PATH`.
 
 For the best results use a terminal with true color and mouse support, such
 as WezTerm, Ghostty, kitty, iTerm2 or Alacritty.
@@ -160,6 +170,10 @@ but programs that were running in them do not.
 go test ./...          # unit, architecture and end-to-end tests
 go test -short ./...   # skip the slower end-to-end tests
 ```
+
+CI runs every test on macOS and Linux. To release, push a tag such as
+`v0.1.0`: GoReleaser builds the archives, publishes a GitHub release and
+updates the Homebrew tap.
 
 The end-to-end tests run the real binary in a pseudo-terminal, each with its
 own server, settings and state, so they never touch yours. See
