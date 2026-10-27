@@ -96,6 +96,7 @@ func newRig(t *testing.T, build string, opts ...func(*Server)) *rig {
 		r.locals <- f
 		return f
 	}, build)
+	r.server.drainTimeout = 100 * time.Millisecond
 	for _, opt := range opts {
 		opt(r.server)
 	}
@@ -289,5 +290,19 @@ func TestServerDropsConnectionsThatNeverSayHello(t *testing.T) {
 	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	if _, err := conn.Read(make([]byte, 1)); err == nil || errors.Is(err, os.ErrDeadlineExceeded) {
 		t.Fatalf("read = %v, want the server to hang up", err)
+	}
+}
+
+func TestStoppingLetsClientsHearTheyAreDetached(t *testing.T) {
+	r := newRig(t, "build-1", func(s *Server) { s.drainTimeout = 5 * time.Second })
+	c, f := r.attach()
+	r.cancel()
+	// The service detaches every client as it stops, a moment after the
+	// server was told to stop.
+	time.Sleep(50 * time.Millisecond)
+	f.detach(nil)
+	ev := next(t, c.Events())
+	if d, ok := ev.(domain.Detached); !ok || d.Err != nil {
+		t.Fatalf("event = %#v, want a clean Detached", ev)
 	}
 }

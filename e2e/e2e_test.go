@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -39,9 +40,11 @@ func TestMain(m *testing.M) {
 
 // term is an outer terminal running mux.
 type term struct {
-	t    *testing.T
-	cmd  *exec.Cmd
-	pty  *os.File
+	t   *testing.T
+	cmd *exec.Cmd
+	pty *os.File
+	// env is mux's environment, which also finds its server.
+	env  []string
 	mu   sync.Mutex
 	emu  *vt.Emulator
 	done chan struct{}
@@ -56,7 +59,7 @@ func launch(t *testing.T, w, h int) *term {
 
 func launchShell(t *testing.T, w, h int, shell string) *term {
 	t.Helper()
-	return launchWith(t, options{w: w, h: h, shell: shell, config: t.TempDir(), state: t.TempDir()})
+	return launchWith(t, options{w: w, h: h, shell: shell})
 }
 
 // options describes how to start mux.
@@ -67,6 +70,13 @@ type options struct {
 	// tests never touch the real settings or saved sessions. Reusing a
 	// directory carries them across runs.
 	config, state string
+	// runtime is used as XDG_RUNTIME_DIR, where the server's socket lives.
+	// Each test gets its own server; reusing a directory attaches to the
+	// same one.
+	runtime string
+	// binary, when set, is the mux binary to run instead of the one built
+	// for the tests.
+	binary string
 	// background, when set, is the outer terminal's background color, as
 	// reported to mux when it asks.
 	background color.Color
@@ -84,16 +94,31 @@ func launchWith(t *testing.T, o options) *term {
 	if o.state == "" {
 		o.state = t.TempDir()
 	}
+	if o.runtime == "" {
+		o.runtime = runtimeDir(t)
+	}
 	if testing.Short() {
 		t.Skip("e2e tests are slow")
 	}
-	cmd := exec.Command(binary)
-	cmd.Env = append(os.Environ(), "SHELL="+shell, "TERM=xterm-256color", "XDG_CONFIG_HOME="+o.config, "XDG_STATE_HOME="+o.state)
+	env := append(os.Environ(),
+		"SHELL="+shell,
+		"TERM=xterm-256color",
+		"XDG_CONFIG_HOME="+o.config,
+		"XDG_STATE_HOME="+o.state,
+		"XDG_RUNTIME_DIR="+o.runtime,
+	)
+	// The tests may themselves run inside mux.
+	env = slices.DeleteFunc(env, func(v string) bool { return strings.HasPrefix(v, "MUX=") })
+	if o.binary == "" {
+		o.binary = binary
+	}
+	cmd := exec.Command(o.binary)
+	cmd.Env = env
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	tm := &term{t: t, cmd: cmd, pty: f, emu: vt.NewEmulator(w, h), done: make(chan struct{})}
+	tm := &term{t: t, cmd: cmd, env: env, pty: f, emu: vt.NewEmulator(w, h), done: make(chan struct{})}
 	if o.background != nil {
 		tm.emu.SetDefaultBackgroundColor(o.background)
 	}
@@ -133,8 +158,35 @@ func launchWith(t *testing.T, o options) *term {
 		cmd.Process.Kill()
 		<-tm.done
 		f.Close()
+		// Stop this test's server too, unless it already stopped. Never
+		// without env: that would find the user's own server.
+		kill := exec.Command(binary, "kill-server")
+		kill.Env = env
+		_ = kill.Run()
 	})
 	return tm
+}
+
+// runtimeDir returns a fresh directory for a server's socket. Socket paths
+// are short on macOS, so it avoids the long t.TempDir.
+func runtimeDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "mx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	return dir
+}
+
+// killServer runs "mux kill-server" for this terminal's server.
+func (tm *term) killServer() {
+	tm.t.Helper()
+	cmd := exec.Command(binary, "kill-server")
+	cmd.Env = tm.env
+	if out, err := cmd.CombinedOutput(); err != nil {
+		tm.t.Fatalf("kill-server: %v: %s", err, out)
+	}
 }
 
 func (tm *term) send(s string) {

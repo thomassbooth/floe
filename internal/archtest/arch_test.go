@@ -26,13 +26,14 @@ var rules = map[string]struct {
 	"internal/infra/atomicfile": {},
 	"internal/infra/settings":   {project: []string{"internal/infra/atomicfile"}},
 	"internal/infra/store":      {project: []string{"internal/domain", "internal/infra/atomicfile"}},
+	"internal/infra/socket":     {},
 	"internal/input":            {project: []string{"internal/domain"}},
 	"internal/wire":             {project: []string{"internal/domain"}},
 	"internal/remote":           {project: []string{"internal/domain", "internal/queue", "internal/wire"}},
 	"internal/service":          {project: []string{"internal/domain", "internal/queue"}},
 	"internal/infra/terminal":   {project: []string{"internal/domain", "internal/queue"}, thirdParty: true},
 	"internal/ui":               {project: []string{"internal/domain", "internal/input", "internal/theme"}, thirdParty: true},
-	"cmd/mux":                   {project: []string{"internal/domain", "internal/infra/settings", "internal/infra/store", "internal/infra/terminal", "internal/input", "internal/service", "internal/ui"}, thirdParty: true},
+	"cmd/mux":                   {project: []string{"internal/domain", "internal/infra/settings", "internal/infra/socket", "internal/infra/store", "internal/infra/terminal", "internal/input", "internal/remote", "internal/service", "internal/ui"}, thirdParty: true},
 	"internal/archtest":         {},
 }
 

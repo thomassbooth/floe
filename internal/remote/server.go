@@ -26,7 +26,10 @@ type LocalClient interface {
 	Close()
 }
 
-const defaultHelloTimeout = 5 * time.Second
+const (
+	defaultHelloTimeout = 5 * time.Second
+	defaultDrainTimeout = 2 * time.Second
+)
 
 // Server accepts connections and gives each its own client of the service.
 type Server struct {
@@ -34,6 +37,9 @@ type Server struct {
 	build   string
 	// helloTimeout is how long a new connection has to introduce itself.
 	helloTimeout time.Duration
+	// drainTimeout is how long connections get, when the server stops, to
+	// pass on their last events before they are cut.
+	drainTimeout time.Duration
 
 	mu     sync.Mutex
 	conns  map[*wire.Conn]bool
@@ -48,12 +54,15 @@ func NewServer(connect func() LocalClient, build string) *Server {
 		connect:      connect,
 		build:        build,
 		helloTimeout: defaultHelloTimeout,
+		drainTimeout: defaultDrainTimeout,
 		conns:        make(map[*wire.Conn]bool),
 	}
 }
 
 // Serve accepts connections on l until ctx is done or l fails. It closes l,
-// and every connection, before returning.
+// then waits for its connections to end. Connections end by themselves once
+// their client of the service is detached, as every client is when the
+// service stops; any still open after a short wait are cut.
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	stop := context.AfterFunc(ctx, func() { _ = l.Close() })
 	defer stop()
@@ -94,15 +103,28 @@ func (s *Server) untrack(conn *wire.Conn) {
 	delete(s.conns, conn)
 }
 
-// shutdown closes every connection and waits for their clients to go.
+// shutdown waits for connections to end, cutting any that take too long.
 func (s *Server) shutdown() {
 	s.mu.Lock()
 	s.closed = true
+	s.mu.Unlock()
+
+	ended := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(ended)
+	}()
+	select {
+	case <-ended:
+		return
+	case <-time.After(s.drainTimeout):
+	}
+	s.mu.Lock()
 	for conn := range s.conns {
 		_ = conn.Close()
 	}
 	s.mu.Unlock()
-	s.wg.Wait()
+	<-ended
 }
 
 // serve runs one connection: the handshake, then requests until the client

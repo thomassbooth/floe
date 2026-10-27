@@ -2,22 +2,53 @@ package e2e
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
-func TestClosingTheTerminalKeepsSessions(t *testing.T) {
+func TestClosingTheTerminalKeepsProgramsRunning(t *testing.T) {
+	state, runtime := t.TempDir(), runtimeDir(t)
+	tm := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
+	tm.waitPrompts(1)
+	tm.typeLine("echo marker-$((6*7)); sleep 600")
+	tm.waitFor("╭─ 1 sleep ")
+
+	// The terminal closes: only the client goes.
+	tm.cmd.Process.Signal(syscall.SIGHUP)
+	tm.waitExit()
+
+	again := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
+	again.waitFor("╭─ 1 sleep ")
+	again.waitFor("marker-42")
+	// It is the same program, still running: interrupt it.
+	again.send("\x03")
+	again.waitFor("╭─ 1 sh ")
+}
+
+func TestTwoTerminalsShowTheSameSession(t *testing.T) {
+	runtime := runtimeDir(t)
+	a := launchWith(t, options{w: 100, h: 30, runtime: runtime})
+	a.waitPrompts(1)
+	b := launchWith(t, options{w: 100, h: 30, runtime: runtime})
+	b.waitPrompts(1)
+	a.typeLine("echo from-$((1+1))-a")
+	b.waitFor("from-2-a")
+}
+
+func TestKillServerSavesLayoutsForTheNextServer(t *testing.T) {
 	dir, err := os.MkdirTemp("/tmp", "mx")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(dir) })
 	dir, _ = filepath.EvalSymlinks(dir)
-	state := t.TempDir()
+	state, runtime := t.TempDir(), runtimeDir(t)
 
-	tm := launchWith(t, options{w: 100, h: 30, state: state})
+	tm := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
 	tm.waitFor(" 1 sh ")
 	tm.prefix("$")
 	tm.waitFor("rename session")
@@ -29,11 +60,11 @@ func TestClosingTheTerminalKeepsSessions(t *testing.T) {
 	tm.typeLine("cd " + dir + " && echo moved")
 	tm.waitFor("moved") // the shell has really changed directory
 
-	// The terminal closes: mux gets SIGHUP and saves on the way out.
-	tm.cmd.Process.Signal(syscall.SIGHUP)
+	// Stopping the server detaches its clients.
+	tm.killServer()
 	tm.waitExit()
 
-	again := launchWith(t, options{w: 100, h: 30, state: state})
+	again := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
 	again.waitBadge("work")
 	again.waitFor("╭─ 1 sh ")
 	again.waitFor("╭─ 2 sh ")
@@ -52,16 +83,17 @@ func TestClosingTheTerminalKeepsSessions(t *testing.T) {
 	})
 }
 
-func TestKillingTheLastSessionStartsFreshNextTime(t *testing.T) {
-	state := t.TempDir()
-	tm := launchWith(t, options{w: 100, h: 30, state: state})
+func TestKillingTheLastSessionStopsTheServer(t *testing.T) {
+	state, runtime := t.TempDir(), runtimeDir(t)
+	tm := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
 	tm.waitFor(" 1 sh ")
 	tm.prefix("|")
 	tm.waitFor(" 2 sh ")
 	tm.prefix("q")
 	tm.waitExit()
+	waitServerGone(t, tm.env)
 
-	again := launchWith(t, options{w: 100, h: 30, state: state})
+	again := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
 	again.waitFor(" 1 sh ")
 	if strings.Contains(again.screen(), " 2 sh ") {
 		t.Fatal("a killed session must not come back")
@@ -69,17 +101,35 @@ func TestKillingTheLastSessionStartsFreshNextTime(t *testing.T) {
 }
 
 func TestRestoredWindowsDoNotKeepOldProgramTitles(t *testing.T) {
-	state := t.TempDir()
-	tm := launchWith(t, options{w: 100, h: 30, state: state})
+	state, runtime := t.TempDir(), runtimeDir(t)
+	tm := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
 	tm.waitFor(" 1 sh ")
 	tm.waitPrompts(1)
 	tm.typeLine("sleep 60")
 	tm.waitFor("╭─ 1 sleep ")
-	tm.cmd.Process.Signal(syscall.SIGHUP)
+	tm.killServer()
 	tm.waitExit()
 
 	// The program does not come back, so neither should its title.
-	again := launchWith(t, options{w: 100, h: 30, state: state})
+	again := launchWith(t, options{w: 100, h: 30, state: state, runtime: runtime})
 	again.waitPrompts(1)
 	again.waitFor("╭─ 1 sh ")
+}
+
+// waitServerGone waits until no server runs for env.
+func waitServerGone(t *testing.T, env []string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		cmd := exec.Command(binary, "kill-server")
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil && strings.Contains(string(out), "no mux server is running") {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the server is still running: %s", out)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
