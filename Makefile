@@ -20,7 +20,8 @@ uninstall: ## Remove floe from $(BINDIR)
 	rm -f "$(DESTDIR)$(BINDIR)/floe"
 
 test: ## Run every test: unit, architecture and end-to-end
-	go test ./...
+	go test ./internal/... ./cmd/...
+	$(MAKE) e2e
 
 test-short: ## Run the tests, skipping the slower end-to-end ones
 	go test -short ./...
@@ -36,8 +37,10 @@ vet: ## Run go vet
 unit: ## Run the unit tests with the race detector
 	go test -race ./internal/...
 
+# The end-to-end tests build floe themselves, so Go cannot tell when a cached
+# result is out of date: -count=1 always runs them.
 e2e: ## Run the end-to-end tests
-	go test ./e2e/...
+	go test -count=1 ./e2e/...
 
 snapshot: ## Build a release into dist/ without publishing it
 	goreleaser release --snapshot --clean
