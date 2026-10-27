@@ -38,6 +38,7 @@ func DefaultKeymap() Keymap {
 			{Keys: []domain.Key{char('$')}, Action: ActionRenameSession, Group: "Sessions", Help: "rename"},
 			{Keys: []domain.Key{char('(')}, Action: ActionPrevSession, Group: "Sessions", Help: "prev session"},
 			{Keys: []domain.Key{char(')')}, Action: ActionNextSession, Group: "Sessions", Help: "next session"},
+			{Keys: []domain.Key{char('d')}, Action: ActionDetach, Group: "Sessions", Help: "detach"},
 			{Keys: []domain.Key{char('q')}, Command: domain.KillSession{}, Group: "Sessions", Help: "kill session"},
 
 			{Keys: []domain.Key{char('t')}, Action: ActionThemePicker, Group: "General", Help: "theme"},

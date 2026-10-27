@@ -29,6 +29,26 @@ func TestClosingTheTerminalKeepsProgramsRunning(t *testing.T) {
 	again.waitFor("╭─ 1 sh ")
 }
 
+func TestDetachKeyLeavesProgramsRunning(t *testing.T) {
+	runtime := runtimeDir(t)
+	tm := launchWith(t, options{w: 100, h: 30, runtime: runtime})
+	tm.prefix("$")
+	tm.waitFor("rename session")
+	tm.send("\x15work\r")
+	tm.waitBadge("work")
+	tm.waitPrompts(1)
+	tm.typeLine("sleep 600")
+	tm.waitFor("╭─ 1 sleep ")
+
+	tm.prefix("d")
+	tm.waitExit()
+	tm.waitFor("[detached from session work]")
+
+	again := launchWith(t, options{w: 100, h: 30, runtime: runtime})
+	again.waitBadge("work")
+	again.waitFor("╭─ 1 sleep ")
+}
+
 func TestTwoTerminalsShowTheSameSession(t *testing.T) {
 	runtime := runtimeDir(t)
 	a := launchWith(t, options{w: 100, h: 30, runtime: runtime})

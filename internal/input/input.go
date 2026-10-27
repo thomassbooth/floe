@@ -41,6 +41,9 @@ const (
 	// ActionPrevSession and ActionNextSession cycle through sessions.
 	ActionPrevSession
 	ActionNextSession
+	// ActionDetach closes this client; the server keeps everything
+	// running.
+	ActionDetach
 )
 
 // Result is what a key press produces: a command for the server, an action

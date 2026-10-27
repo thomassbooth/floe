@@ -73,6 +73,9 @@ type Model struct {
 
 	// Err is set when the client was detached because of a failure.
 	Err error
+	// DetachedFrom names the session that was showing when the user
+	// detached; empty unless they did.
+	DetachedFrom string
 }
 
 // New returns a model that drives backend with the given keymap. The theme
@@ -123,6 +126,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.selection = nil
 		if k, ok := toDomainKey(tea.Key(msg)); ok {
 			m.handleKey(k)
+		}
+		if m.DetachedFrom != "" {
+			return m, tea.Quit
 		}
 
 	case tea.PasteMsg:
@@ -226,6 +232,8 @@ func (m *Model) runAction(a input.Action) {
 		m.cycleSession(-1)
 	case input.ActionNextSession:
 		m.cycleSession(1)
+	case input.ActionDetach:
+		m.DetachedFrom = m.snap.Name
 	}
 }
 

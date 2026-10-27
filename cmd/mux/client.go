@@ -71,8 +71,13 @@ func runClient() error {
 	if err != nil && !(signalled.Load() && errors.Is(err, tea.ErrProgramKilled)) {
 		return err
 	}
-	if m, ok := final.(ui.Model); ok && m.Err != nil {
-		return m.Err
+	if m, ok := final.(ui.Model); ok {
+		if m.Err != nil {
+			return m.Err
+		}
+		if m.DetachedFrom != "" {
+			fmt.Printf("[detached from session %s]\n", m.DetachedFrom)
+		}
 	}
 	return nil
 }
