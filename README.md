@@ -60,9 +60,19 @@ floe runs on macOS and Linux.
 brew install thomassbooth/tap/floe
 ```
 
-**Linux, or macOS without Homebrew:** download the archive for your system
-from the [latest release](https://github.com/thomassbooth/floe/releases/latest),
-unpack it and put `floe` somewhere on your `PATH`.
+**Linux:** download the package for your system from the
+[latest release](https://github.com/thomassbooth/floe/releases/latest) and
+install it. Use `amd64` for most PCs and `arm64` for ARM machines such as a
+Raspberry Pi.
+
+```sh
+sudo apt install ./floe_<version>_amd64.deb              # Debian, Ubuntu
+sudo dnf install ./floe_<version>_amd64.rpm              # Fedora, RHEL
+sudo apk add --allow-untrusted floe_<version>_amd64.apk  # Alpine
+```
+
+**Anywhere else:** download the archive for your system from the latest
+release, unpack it and put `floe` somewhere on your `PATH`.
 
 **From source,** with Go 1.26 or newer:
 

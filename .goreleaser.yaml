@@ -20,6 +20,20 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files: [README.md, LICENSE]
 
+# Linux packages, attached to the release next to the archives.
+nfpms:
+  - file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+    homepage: https://github.com/thomassbooth/floe
+    description: Terminal multiplexer with free-floating windows and sessions that outlive the terminal
+    maintainer: Thomas Booth <thomasbooth26@gmail.com>
+    license: MIT
+    formats: [deb, rpm, apk]
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/floe/README.md
+      - src: LICENSE
+        dst: /usr/share/doc/floe/LICENSE
+
 release:
   github:
     owner: thomassbooth
