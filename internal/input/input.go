@@ -55,6 +55,10 @@ type Result struct {
 
 // Binding maps a key pressed after the prefix to a command or an action.
 type Binding struct {
+	// Name is how keybinds.conf refers to the binding, such as
+	// "split-right". It is unique within its table.
+	Name string
+	// Keys may be empty: the binding exists but no key runs it.
 	Keys []domain.Key
 	// Exactly one of Command and Action is set.
 	Command domain.Command

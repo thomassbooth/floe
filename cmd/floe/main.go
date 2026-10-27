@@ -16,6 +16,7 @@ With no command, attach to the floe server, starting it if needed.
 
 Commands:
   kill-server   stop the server and every program in it; layouts are kept
+  keys          list every key binding, as set in keybinds.conf
   version       show the version
   help          show this help
 `
@@ -37,6 +38,8 @@ func run(args []string) error {
 		return runServer(args[1:])
 	case "kill-server":
 		return killServer()
+	case "keys":
+		return listKeys(os.Stdout)
 	case "version", "-v", "--version":
 		fmt.Println("floe", release())
 		return nil

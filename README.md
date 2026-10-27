@@ -35,6 +35,8 @@ your programs: run `floe` again and everything is where you left it.
   Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Dracula. Until
   you pick one, floe matches your terminal's light or dark background.
 - **Help when you need it.** Press the prefix and a popup lists every key.
+- **Your own keys.** Change the prefix and any binding in a small config
+  file, in the style of tmux.
 
 ## Install
 
@@ -93,10 +95,12 @@ as WezTerm, Ghostty, kitty, iTerm2 or Alacritty.
 ```sh
 floe               # attach to the server, starting it if needed
 floe kill-server   # stop the server and every program in it; layouts are kept
+floe keys          # list every key binding and the name to change it by
 floe help
 ```
 
-Everything else happens inside floe. The prefix key is `ctrl+b`, as in tmux:
+Everything else happens inside floe. The prefix key is `ctrl+b`, as in tmux
+(see [Custom keys](#custom-keys) to change it):
 press it, let go, then press the key for what you want. Press `ctrl+b`
 twice to send `ctrl+b` itself to the program in the window.
 
@@ -144,6 +148,42 @@ windows without pressing the prefix each time.
 | `=` `z` `c` `\|` `-` `x` | Tidy, maximize, new window, split, close |
 | `esc`, `enter`, `a` or `q` | Done |
 
+### Custom keys
+
+Put your own keys in `~/.config/floe/keybinds.conf`. Each line is one
+command, and lines starting with `#` are comments:
+
+```sh
+# Use ctrl+a, like screen.
+prefix ctrl+a
+
+# Split with v and s instead.
+bind v split-right
+bind s split-down
+unbind |
+unbind %
+
+# Keys in arrange mode take --arrange.
+bind --arrange w move-up
+```
+
+| Command | Does |
+|---|---|
+| `prefix <key>` | Use another prefix key |
+| `bind <key> <action>` | Run an action with a key after the prefix. The key leaves whatever it ran before, and the action keeps its other keys |
+| `unbind <key>` | Make a key do nothing after the prefix |
+| `unbind all` | Remove every binding, to start from nothing |
+| `bind --arrange ...`, `unbind --arrange ...` | The same, for arrange mode |
+
+Keys are written as `ctrl+a`, `alt+x`, `shift+left`, `H`, `|`, `space`, `tab`,
+`enter`, `esc` or `f1` to `f12`. Run `floe keys` to see every action's
+name and current keys; some, such as `focus-next`, have no key until you give
+them one. Later lines win.
+
+floe reads the file each time you run `floe`, so detach and run it again
+after a change. If a line is wrong, floe says which in the status bar and
+uses the default keys until it is fixed.
+
 ### Mouse
 
 | Do this | To |
@@ -164,6 +204,7 @@ windows without pressing the prefix each time.
 | Path | What |
 |---|---|
 | `~/.config/floe/settings.json` | Your chosen theme |
+| `~/.config/floe/keybinds.conf` | Your own keys, if you write one |
 | `~/.local/state/floe/sessions.json` | Saved sessions, for after a restart |
 | `~/.local/state/floe/server.log` | What the server has to say |
 | `$TMPDIR/floe-<uid>/` | The server's socket, private to you |

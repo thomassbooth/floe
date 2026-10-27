@@ -1,5 +1,6 @@
 // Package settings stores the choices people make in the client, such as
-// the theme, in a small JSON file so they outlive the session.
+// the theme, in a small JSON file so they outlive the session. It also knows
+// where the other files in floe's config directory live.
 package settings
 
 import (
@@ -28,17 +29,36 @@ type data struct {
 	Theme string `json:"theme,omitempty"`
 }
 
-// DefaultPath returns where settings live: $XDG_CONFIG_HOME/floe, or
-// ~/.config/floe, on every platform.
+// DefaultPath returns where settings live: settings.json in Dir.
 func DefaultPath() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "settings.json"), nil
+}
+
+// KeybindsPath returns where people write their own keys: keybinds.conf in
+// Dir. floe only reads it.
+func KeybindsPath() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "keybinds.conf"), nil
+}
+
+// Dir returns floe's config directory: $XDG_CONFIG_HOME/floe, or
+// ~/.config/floe, on every platform.
+func Dir() (string, error) {
 	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
-		return filepath.Join(dir, "floe", "settings.json"), nil
+		return filepath.Join(dir, "floe"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("find settings: %w", err)
 	}
-	return filepath.Join(home, ".config", "floe", "settings.json"), nil
+	return filepath.Join(home, ".config", "floe"), nil
 }
 
 // Open loads the settings file at path. A missing file is fine: it is

@@ -1,8 +1,10 @@
 package domain
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // KeyMod is a set of modifier keys held during a key press.
@@ -100,14 +102,17 @@ var keyNames = map[rune]string{
 	KeyF12:       "f12",
 }
 
+// modNames are the modifiers in the order they are written.
+var modNames = []struct {
+	mod  KeyMod
+	name string
+}{{ModCtrl, "ctrl"}, {ModAlt, "alt"}, {ModSuper, "super"}, {ModShift, "shift"}}
+
 // String renders the key the way it is written in help text, such as
 // "ctrl+b", "shift+left" or "|".
 func (k Key) String() string {
 	var b strings.Builder
-	for _, m := range []struct {
-		mod  KeyMod
-		name string
-	}{{ModCtrl, "ctrl"}, {ModAlt, "alt"}, {ModSuper, "super"}, {ModShift, "shift"}} {
+	for _, m := range modNames {
 		if k.Mod&m.mod != 0 {
 			b.WriteString(m.name)
 			b.WriteByte('+')
@@ -119,4 +124,58 @@ func (k Key) String() string {
 		b.WriteRune(k.Code)
 	}
 	return b.String()
+}
+
+// ParseKey reads a key written the way String writes it, such as "ctrl+b",
+// "shift+left", "H" or "|". The result matches the key press it names:
+// shift+h is the same key as H.
+func ParseKey(s string) (Key, error) {
+	parts := strings.Split(s, "+")
+	if s == "+" || strings.HasSuffix(s, "++") {
+		// The key itself is "+", as in "+" or "ctrl++".
+		parts = append(parts[:len(parts)-2], "+")
+	}
+	name := parts[len(parts)-1]
+	var mod KeyMod
+	for _, p := range parts[:len(parts)-1] {
+		m, ok := lookupMod(p)
+		if !ok {
+			return Key{}, fmt.Errorf("bad key %q: unknown modifier %q", s, p)
+		}
+		mod |= m
+	}
+
+	for code, n := range keyNames {
+		if n == strings.ToLower(name) {
+			return Key{Code: code, Mod: mod}, nil
+		}
+	}
+	r, size := utf8.DecodeRuneInString(name)
+	if name == "" || size != len(name) || !unicode.IsPrint(r) {
+		return Key{}, fmt.Errorf("bad key %q", s)
+	}
+	if mod&ModCtrl != 0 {
+		// With ctrl the code is the unshifted key.
+		if unicode.IsUpper(r) {
+			r, mod = unicode.ToLower(r), mod|ModShift
+		}
+		return Key{Code: r, Mod: mod}, nil
+	}
+	// Without ctrl the code is the typed character, and shift is part of it.
+	if mod&ModShift != 0 {
+		if !unicode.IsLetter(r) {
+			return Key{}, fmt.Errorf("bad key %q: write the character shift types instead", s)
+		}
+		r, mod = unicode.ToUpper(r), mod&^ModShift
+	}
+	return Key{Code: r, Text: string(r), Mod: mod}, nil
+}
+
+func lookupMod(name string) (KeyMod, bool) {
+	for _, m := range modNames {
+		if m.name == strings.ToLower(name) {
+			return m.mod, true
+		}
+	}
+	return 0, false
 }

@@ -14,9 +14,9 @@ flowchart LR
     subgraph client["floe - client process, one per terminal"]
         direction TB
         ui["<b>ui</b><br/>Bubble Tea: draws windows,<br/>status bar, overlays"]
-        input["<b>input</b><br/>prefix key, arrange mode"]
+        input["<b>input</b><br/>prefix key, arrange mode,<br/>your own keys"]
         theme["<b>theme</b><br/>colors"]
-        settings[("<b>settings</b><br/>settings.json")]
+        settings[("<b>settings</b><br/>settings.json,<br/>keybinds.conf")]
         rclient["<b>remote.Client</b><br/>stands in for the service"]
         ui --> input
         ui --> theme

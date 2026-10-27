@@ -378,7 +378,7 @@ func hintList(bindings []input.Binding, repeatOnly bool) []hint {
 	var list []hint
 	index := map[string]int{}
 	for _, b := range bindings {
-		if repeatOnly && !b.Repeat {
+		if len(b.Keys) == 0 || repeatOnly && !b.Repeat {
 			continue
 		}
 		name := b.Help

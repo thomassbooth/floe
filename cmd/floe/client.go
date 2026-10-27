@@ -13,7 +13,6 @@ import (
 	"github.com/thomassbooth/floe/internal/domain"
 	"github.com/thomassbooth/floe/internal/infra/settings"
 	"github.com/thomassbooth/floe/internal/infra/socket"
-	"github.com/thomassbooth/floe/internal/input"
 	"github.com/thomassbooth/floe/internal/remote"
 	"github.com/thomassbooth/floe/internal/ui"
 )
@@ -54,8 +53,9 @@ func runClient() error {
 	}
 	defer client.Close()
 
+	km, keyErrs := loadKeymap()
 	client.Apply(domain.AttachSession{})
-	program := tea.NewProgram(ui.New(client, input.DefaultKeymap(), openPreferences()))
+	program := tea.NewProgram(ui.New(client, km, openPreferences(), keymapNotice(keyErrs)))
 
 	// Closing the terminal sends SIGHUP. The server keeps everything
 	// running; just stop showing it.

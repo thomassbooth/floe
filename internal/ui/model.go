@@ -79,12 +79,14 @@ type Model struct {
 }
 
 // New returns a model that drives backend with the given keymap. The theme
-// comes from prefs when one was saved; prefs may be nil.
-func New(backend Backend, km input.Keymap, prefs Preferences) Model {
+// comes from prefs when one was saved; prefs may be nil. A notice, such as a
+// problem with the config, shows in the status bar until the first key.
+func New(backend Backend, km input.Keymap, prefs Preferences, notice string) Model {
 	m := Model{
 		backend: backend,
 		keys:    input.NewMachine(km),
 		prefs:   prefs,
+		notice:  notice,
 		theme:   theme.MustLookup(theme.Default),
 		scroll:  make(map[domain.PaneID]int),
 		seen:    make(map[domain.PaneID]int),
