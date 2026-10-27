@@ -21,6 +21,9 @@ type Options struct {
 	Title string
 	// Now tells the time; time.Now when nil. Tests set it to control time.
 	Now func() time.Time
+	// After waits for a duration to pass; a timer's channel when nil.
+	// Tests set it alongside Now.
+	After func(time.Duration) <-chan time.Time
 	// Store keeps sessions between runs; nil keeps nothing.
 	Store SessionStore
 }
@@ -41,6 +44,7 @@ type Service struct {
 	focus     *focusService
 	layout    *layoutService
 	input     *inputService
+	activity  *activityService
 	// dirty lists sessions whose layout must be republished.
 	dirty map[domain.SessionID]bool
 	// listChanged is set when every client needs a new session list.
@@ -52,10 +56,14 @@ func New(host PaneHost, opts Options) *Service {
 	if opts.Now == nil {
 		opts.Now = time.Now
 	}
+	if opts.After == nil {
+		opts.After = func(d time.Duration) <-chan time.Time { return time.NewTimer(d).C }
+	}
 	server := domain.NewServer()
 	layout := newLayoutService(host, opts.Now)
 	windows := newWindowService(server, host, layout, opts.Title)
 	sessions := newSessionService(server, host, windows)
+	activity := newActivityService(server, layout, opts.Now, opts.After)
 	return &Service{
 		host:      host,
 		inbox:     queue.New[request](),
@@ -67,7 +75,8 @@ func New(host PaneHost, opts Options) *Service {
 		windows:   windows,
 		focus:     newFocusService(),
 		layout:    layout,
-		input:     newInputService(host),
+		input:     newInputService(host, activity),
+		activity:  activity,
 		dirty:     make(map[domain.SessionID]bool),
 	}
 }

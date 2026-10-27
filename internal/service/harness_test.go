@@ -147,10 +147,25 @@ type harness struct {
 	errc   chan error
 }
 
-// clock is a time source tests move by hand.
+// clock is a time source tests move by hand. Waits made with After end
+// once advance moves the clock past them.
 type clock struct {
-	mu  sync.Mutex
-	now time.Time
+	mu      sync.Mutex
+	now     time.Time
+	waiters []waiter
+}
+
+type waiter struct {
+	at time.Time
+	ch chan time.Time
+}
+
+func (c *clock) After(d time.Duration) <-chan time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ch := make(chan time.Time, 1)
+	c.waiters = append(c.waiters, waiter{at: c.now.Add(d), ch: ch})
+	return ch
 }
 
 func (c *clock) Now() time.Time {
@@ -163,6 +178,15 @@ func (c *clock) advance(d time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.now = c.now.Add(d)
+	waiting := c.waiters[:0]
+	for _, w := range c.waiters {
+		if w.at.After(c.now) {
+			waiting = append(waiting, w)
+			continue
+		}
+		w.ch <- c.now
+	}
+	c.waiters = waiting
 }
 
 func start(t *testing.T, host *fakeHost) *harness {
@@ -171,7 +195,7 @@ func start(t *testing.T, host *fakeHost) *harness {
 	t.Cleanup(cancel)
 	clk := &clock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
 	h := &harness{t: t, host: host, clock: clk, cancel: cancel, errc: make(chan error, 1)}
-	h.svc = New(host, Options{Title: "sh", Now: clk.Now})
+	h.svc = New(host, Options{Title: "sh", Now: clk.Now, After: clk.After})
 	go func() { h.errc <- h.svc.Run(ctx) }()
 	return h
 }

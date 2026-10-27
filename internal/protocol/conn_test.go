@@ -85,7 +85,7 @@ func TestEveryEventCrosses(t *testing.T) {
 		Name:    "main",
 		Area:    domain.Rect{W: 80, H: 23},
 		Windows: []domain.WindowView{{
-			ID: 1, Pane: 7, Title: "zsh", Activity: true, Bell: true,
+			ID: 1, Pane: 7, Title: "zsh", Busy: true, Bell: true,
 			Frame:   domain.Rect{W: 40, H: 23},
 			Content: domain.Rect{X: 1, Y: 1, W: 38, H: 21},
 			Focused: true, Maximized: true,

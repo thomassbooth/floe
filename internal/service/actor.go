@@ -55,6 +55,10 @@ func (s *Service) Run(ctx context.Context) error {
 			s.paneExited(id)
 		case <-s.host.Changed():
 			s.paneOutput()
+		case <-s.activity.due():
+			for _, sess := range s.activity.settle() {
+				s.markDirty(sess.ID())
+			}
 		case <-s.host.Notices():
 			s.notices(s.host.TakeNotices())
 		}
@@ -264,6 +268,7 @@ func (s *Service) paneExited(id domain.PaneID) {
 	if sess.Len() == 0 {
 		s.removeSession(sess, nil)
 	}
+	s.activity.forget(id)
 }
 
 // removeSession deletes a session and moves its clients to the most
@@ -313,8 +318,7 @@ func (s *Service) notices(notices []domain.PaneNotice) {
 }
 
 // paneOutput tells the clients viewing changed panes to redraw, and marks
-// windows without focus as active, unless their program is only redrawing
-// after a resize.
+// panes whose programs are printing as busy.
 func (s *Service) paneOutput() {
 	sessions := map[domain.SessionID]bool{}
 	for _, p := range s.host.TakeChanged() {
@@ -323,7 +327,7 @@ func (s *Service) paneOutput() {
 			continue
 		}
 		sessions[sess.ID()] = true
-		if !s.layout.redrawing(p) && sess.MarkActivity(p) {
+		if s.activity.printed(sess, p) {
 			s.markDirty(sess.ID())
 		}
 	}

@@ -17,9 +17,10 @@ type Window struct {
 	ID    WindowID
 	Pane  PaneID
 	Title string
-	// Activity is set when the window printed something while another one
-	// had focus, and Bell when it rang the bell. Focusing it clears both.
-	Activity, Bell bool
+	// Busy is set while the window's program keeps printing, whether or
+	// not the window has focus. Bell is set when it rang the bell while
+	// another window had focus; focusing it clears that.
+	Busy, Bell bool
 }
 
 // Session is a named set of windows, where they are, and which one has
@@ -277,8 +278,8 @@ func (s *Session) Focus(id WindowID) bool {
 	}
 	raised := s.stack.Raise(id)
 	w := s.windows[id]
-	cleared := w.Activity || w.Bell
-	w.Activity, w.Bell = false, false
+	cleared := w.Bell
+	w.Bell = false
 	if cur, _ := s.focused(); cur == id {
 		return raised || cleared
 	}
@@ -286,14 +287,14 @@ func (s *Session) Focus(id WindowID) bool {
 	return true
 }
 
-// MarkActivity notes that a pane printed something. Only windows without
-// focus are marked. It reports whether the window changed.
-func (s *Session) MarkActivity(pane PaneID) bool {
-	w, ok := s.unfocusedWindowFor(pane)
-	if !ok || w.Activity {
+// SetBusy marks whether a pane's program is busy printing. It reports
+// whether the window changed.
+func (s *Session) SetBusy(pane PaneID, busy bool) bool {
+	id, ok := s.panes[pane]
+	if !ok || s.windows[id].Busy == busy {
 		return false
 	}
-	w.Activity = true
+	s.windows[id].Busy = busy
 	return true
 }
 
@@ -524,7 +525,7 @@ func (s *Session) Snapshot() Snapshot {
 			ID:        w.ID,
 			Pane:      w.Pane,
 			Title:     w.Title,
-			Activity:  w.Activity,
+			Busy:      w.Busy,
 			Bell:      w.Bell,
 			Frame:     p.Frame,
 			Content:   p.Frame.Inset(FrameInset),

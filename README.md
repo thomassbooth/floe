@@ -31,9 +31,10 @@ your programs: run `floe` again and everything is where you left it.
   copy it. Programs that use the mouse, such as editors, get it too.
 - **Clipboard.** Programs can copy to your system clipboard (OSC 52), even
   over SSH.
-- **Live titles.** Windows are named after the program running in them, and
-  tabs are marked when a window you are not looking at has new output (•) or
-  rings the bell (!).
+- **Live titles.** Windows are named after the program running in them.
+  A tab shows a dot (•) while its program is busy printing, such as a build
+  or an agent at work, and a mark (!) when a window you are not looking at
+  rings the bell.
 - **Themes.** Eight built in, with a live preview picker: Violet, Catppuccin
   Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Dracula. Until
   you pick one, floe matches your terminal's light or dark background.

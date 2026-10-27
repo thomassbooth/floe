@@ -245,8 +245,14 @@ func (m Model) statusBar(width int) (line string, bounds toggleBounds) {
 		switch tab.marker {
 		case bellMarker:
 			left.WriteString(style.Foreground(t.Error).Bold(true).Render(tab.marker))
-		case activityMarker:
-			left.WriteString(style.Foreground(t.Accent).Render(tab.marker))
+		case busyMarker:
+			// The accent can be faint on the focused tab's background, so
+			// there the dot takes the label's color.
+			dot := style.Foreground(t.Accent)
+			if tab.window.Focused {
+				dot = style
+			}
+			left.WriteString(dot.Render(tab.marker))
 		}
 		left.WriteString(style.Render(" "))
 	}
@@ -292,7 +298,7 @@ type toggleBounds struct {
 }
 
 // statusTab is a window's tab in the status bar, covering columns
-// [x0, x1): its label, a marker for activity or a bell if any, and a
+// [x0, x1): its label, a marker for a busy pane or a bell if any, and a
 // space.
 type statusTab struct {
 	window domain.WindowView
@@ -301,11 +307,12 @@ type statusTab struct {
 	x0, x1 int
 }
 
-// Markers after a tab's label for a window that printed something, or rang
-// the bell, while another had focus.
+// Markers after a tab's label for a window whose program is busy printing,
+// or that rang the bell while another had focus. The bell wins, since it
+// asks for attention.
 const (
-	activityMarker = "•"
-	bellMarker     = "!"
+	busyMarker = "•"
+	bellMarker = "!"
 )
 
 // statusTabs lays out the window tabs that follow the session badge, in
@@ -323,8 +330,8 @@ func (m Model) statusTabs() []statusTab {
 		switch {
 		case w.Bell:
 			marker = bellMarker
-		case w.Activity:
-			marker = activityMarker
+		case w.Busy:
+			marker = busyMarker
 		}
 		width := lipgloss.Width(label) + 1 // and the space after
 		if marker != "" {

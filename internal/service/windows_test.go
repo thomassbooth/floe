@@ -132,40 +132,112 @@ func TestServicePassesClipboardCopiesToViewers(t *testing.T) {
 	}
 }
 
-func TestServiceMarksActivityButNotRedrawsAfterResize(t *testing.T) {
-	h := start(t, newFakeHost())
-	c := h.open()
-	c.apply(domain.SplitWindow{Dir: domain.Right}) // resizes window 1
-	c.layoutUntil(windows(2))
-
-	// Window 1's shell redraws to fit its new size: not activity. The
-	// redraw signal shows the output was handled before time moves on.
-	h.host.output(1)
+// handled waits until the service has dealt with pane output, then retitles
+// window 1 and returns the layout that shows it, so the test can look at
+// the effect of that output.
+func handled(t *testing.T, h *harness, c *testClient, title string) domain.Snapshot {
+	t.Helper()
 	select {
 	case <-c.c.Changed():
 	case <-time.After(2 * time.Second):
 		t.Fatal("the output was never handled")
 	}
+	h.host.retitle(1, title)
+	return c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Title == title })
+}
+
+func busy(id domain.WindowID, want bool) func(domain.Snapshot) bool {
+	return func(s domain.Snapshot) bool {
+		for _, w := range s.Windows {
+			if w.ID == id {
+				return w.Busy == want
+			}
+		}
+		return false
+	}
+}
+
+func TestServiceMarksPanesThatKeepPrintingBusyUntilQuiet(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right}) // resizes window 1
+	c.layoutUntil(windows(2))
+
+	// Window 1's shell redraws to fit its new size: not work.
+	h.host.output(1)
+	handled(t, h, c, "redrawn")
 	h.clock.advance(time.Second)
-	h.host.retitle(1, "marker") // a layout to look at once that was handled
-	snap := c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Title == "marker" })
-	if snap.Windows[0].Activity {
-		t.Fatal("redrawing after a resize is not activity")
+
+	// One burst of output, like a prompt, is not work either.
+	h.host.output(1)
+	if snap := handled(t, h, c, "burst"); snap.Windows[0].Busy {
+		t.Fatal("a single burst is not work")
 	}
 
+	// Output that keeps coming is, whether the window has focus or not.
+	h.clock.advance(busyAfter)
 	h.host.output(1)
-	snap = c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Activity })
-	if snap.Windows[1].Activity {
+	c.layoutUntil(busy(1, true))
+	h.host.output(2)
+	handled(t, h, c, "started")
+	h.clock.advance(busyAfter)
+	h.host.output(2)
+	c.layoutUntil(busy(2, true))
+
+	// Window 1 prints again, so it outlasts window 2.
+	h.clock.advance(busyAfter)
+	h.host.output(1)
+	handled(t, h, c, "printing")
+	h.clock.advance(busyQuiet - busyAfter)
+	snap := c.layoutUntil(busy(2, false))
+	if !snap.Windows[0].Busy {
+		t.Fatal("a pane that kept printing is still busy")
+	}
+	h.clock.advance(busyAfter)
+	c.layoutUntil(busy(1, false))
+}
+
+func TestServiceDoesNotTakeEchoesAsWork(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+
+	c.apply(domain.SendKey{Key: domain.Key{Code: 'a', Text: "a"}})
+	eventually(t, func() bool {
+		h.host.mu.Lock()
+		defer h.host.mu.Unlock()
+		return len(h.host.keys[1]) == 1
+	})
+	h.host.output(1)
+	handled(t, h, c, "echoed")
+
+	// Output after the echo starts afresh, as though the echo never was.
+	h.clock.advance(echoQuiet)
+	h.host.output(1)
+	if snap := handled(t, h, c, "started"); snap.Windows[0].Busy {
+		t.Fatal("the echo of a key is not work")
+	}
+	h.clock.advance(busyAfter)
+	h.host.output(1)
+	c.layoutUntil(busy(1, true))
+}
+
+func TestServiceMarksBellsOnUnfocusedWindowsUntilFocused(t *testing.T) {
+	h := start(t, newFakeHost())
+	c := h.open()
+	c.apply(domain.SplitWindow{Dir: domain.Right})
+	c.layoutUntil(windows(2))
+
+	h.host.notify(domain.PaneNotice{Pane: 2, Kind: domain.NoticeBell})
+	h.host.notify(domain.PaneNotice{Pane: 1, Kind: domain.NoticeBell})
+	snap := c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Bell })
+	if snap.Windows[1].Bell {
 		t.Fatal("the focused window is never marked")
 	}
-
-	h.host.notify(domain.PaneNotice{Pane: 1, Kind: domain.NoticeBell})
-	c.layoutUntil(func(s domain.Snapshot) bool { return s.Windows[0].Bell })
 
 	c.apply(domain.FocusWindow{ID: 1})
 	c.layoutUntil(func(s domain.Snapshot) bool {
 		w := s.Windows[len(s.Windows)-1]
-		return w.ID == 1 && !w.Activity && !w.Bell
+		return w.ID == 1 && !w.Bell
 	})
 }
 

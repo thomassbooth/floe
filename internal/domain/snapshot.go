@@ -17,12 +17,12 @@ type WindowView struct {
 	ID    WindowID
 	Pane  PaneID
 	Title string
-	// Activity and Bell mark a window that printed something, or rang the
-	// bell, while another one had focus.
-	Activity, Bell bool
-	Frame          Rect
-	Content        Rect
-	Focused        bool
+	// Busy marks a window whose program keeps printing, and Bell one that
+	// rang the bell while another had focus.
+	Busy, Bell bool
+	Frame      Rect
+	Content    Rect
+	Focused    bool
 	// Maximized is set while the window fills the screen and remembers
 	// where to go back to.
 	Maximized bool

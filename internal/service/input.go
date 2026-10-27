@@ -8,11 +8,12 @@ import (
 
 // inputService delivers keyboard and mouse input to a session's panes.
 type inputService struct {
-	host PaneHost
+	host     PaneHost
+	activity *activityService
 }
 
-func newInputService(host PaneHost) *inputService {
-	return &inputService{host: host}
+func newInputService(host PaneHost, activity *activityService) *inputService {
+	return &inputService{host: host, activity: activity}
 }
 
 // sendKey types a key into a window's pane, the focused window's when id is
@@ -20,12 +21,14 @@ func newInputService(host PaneHost) *inputService {
 func (i *inputService) sendKey(sess *domain.Session, id domain.WindowID, key domain.Key) error {
 	if id == 0 {
 		if w, ok := sess.Focused(); ok {
+			i.activity.typed(w.Pane)
 			i.host.SendKey(w.Pane, key)
 		}
 		return nil
 	}
 	for _, w := range sess.Snapshot().Windows {
 		if w.ID == id {
+			i.activity.typed(w.Pane)
 			i.host.SendKey(w.Pane, key)
 			return nil
 		}
@@ -37,6 +40,7 @@ func (i *inputService) sendKey(sess *domain.Session, id domain.WindowID, key dom
 func (i *inputService) sendMouse(sess *domain.Session, id domain.WindowID, ev domain.MouseEvent) error {
 	for _, w := range sess.Snapshot().Windows {
 		if w.ID == id {
+			i.activity.typed(w.Pane)
 			i.host.SendMouse(w.Pane, ev)
 			return nil
 		}
@@ -46,6 +50,7 @@ func (i *inputService) sendMouse(sess *domain.Session, id domain.WindowID, ev do
 
 func (i *inputService) paste(sess *domain.Session, text string) {
 	if w, ok := sess.Focused(); ok {
+		i.activity.typed(w.Pane)
 		i.host.Paste(w.Pane, text)
 	}
 }

@@ -415,29 +415,32 @@ func TestSessionSnapshot(t *testing.T) {
 	}
 }
 
-func TestSessionMarksActivityAndBellOnUnfocusedWindows(t *testing.T) {
+func TestSessionMarksBusyWindowsAndBellsOnUnfocusedOnes(t *testing.T) {
 	s := newSession(t, Right) // window 2 focused
-	if s.MarkActivity(2) || s.MarkBell(2) {
-		t.Fatal("the focused window is never marked")
+	if !s.SetBusy(2, true) || s.SetBusy(2, true) {
+		t.Fatal("any window can be busy, and is marked once")
 	}
-	if !s.MarkActivity(1) || s.MarkActivity(1) {
-		t.Fatal("activity should be marked once")
+	if s.MarkBell(2) {
+		t.Fatal("the focused window never rings")
 	}
 	if !s.MarkBell(1) {
 		t.Fatal("expected a bell")
 	}
-	w := s.Snapshot().Windows[0]
-	if !w.Activity || !w.Bell {
+	if w := s.Snapshot().Windows[0]; !w.Bell || w.Busy {
 		t.Fatalf("window 1 = %+v", w)
 	}
 	if !s.Focus(1) {
 		t.Fatal("focusing changes the window")
 	}
-	if w := s.Snapshot().Windows[1]; w.Activity || w.Bell {
-		t.Fatalf("focusing should clear the marks: %+v", w)
+	snap := s.Snapshot()
+	if w := snap.Windows[1]; w.Bell {
+		t.Fatalf("focusing should clear the bell: %+v", w)
 	}
-	if s.MarkActivity(99) {
-		t.Fatal("unknown panes are ignored")
+	if w := snap.Windows[0]; !w.Busy {
+		t.Fatalf("losing focus leaves a window busy: %+v", w)
+	}
+	if !s.SetBusy(2, false) || s.SetBusy(99, true) {
+		t.Fatal("busy should clear, and unknown panes are ignored")
 	}
 }
 
