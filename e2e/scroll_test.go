@@ -2,9 +2,10 @@ package e2e
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // wheel turns the mouse wheel one notch at x, y.
@@ -47,16 +48,29 @@ func TestScrolledViewHoldsStillDuringOutput(t *testing.T) {
 	tm := launch(t, 80, 24)
 	tm.waitFor(" 1 sh ")
 	tm.waitPrompts(1)
-	tm.typeLine("seq 1 60; (for i in $(seq 1 40); do echo tick-$i; sleep 0.05; done &)")
-	tm.waitFor("tick-3")
+	// The ticks wait for the go file, so the view is scrolled to a known
+	// place before any of them arrive. Each one then raises the marker.
+	start := filepath.Join(t.TempDir(), "go")
+	tm.typeLine(fmt.Sprintf("seq 1 60; echo ready; ( (while [ ! -e %s ]; do sleep 0.02; done; for i in $(seq 1 40); do echo tick-$i; sleep 0.02; done) &)", start))
+	tm.waitUntil("the prompt after ready", func(string) bool {
+		lines := tm.lines()
+		for i := range len(lines) - 1 {
+			if strings.HasPrefix(lines[i], "│ready ") && strings.Contains(lines[i+1], "$ ") {
+				return true
+			}
+		}
+		return false
+	})
 
 	for range 5 {
 		tm.wheel(20, 10, true)
 	}
 	tm.waitFor("↑ 15")
 	before := tm.lines()[5]
-	// The ticks keep printing for about two more seconds, out of sight.
-	time.Sleep(2500 * time.Millisecond)
+	if err := os.WriteFile(start, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tm.waitFor("↑ 55")
 	if after := tm.lines()[5]; after != before {
 		t.Fatalf("view moved while scrolled:\nbefore %q\nafter  %q", before, after)
 	}
