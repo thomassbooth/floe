@@ -257,6 +257,10 @@ func (m *Model) runAction(a input.Action) {
 		m.overlay = newPrompt("rename session", m.snap.Name, func(name string) domain.Command {
 			return domain.RenameSession{Name: name}
 		})
+	case input.ActionRenameWindow:
+		if w, ok := m.snap.FocusedWindow(); ok {
+			m.promptWindowName(w)
+		}
 	case input.ActionPrevSession:
 		m.cycleSession(-1)
 	case input.ActionNextSession:
@@ -264,6 +268,16 @@ func (m *Model) runAction(a input.Action) {
 	case input.ActionDetach:
 		m.DetachedFrom = m.snap.Name
 	}
+}
+
+// promptWindowName asks for a new name for a window. The prompt starts with
+// the name it has now, not its title, so that enter on an unnamed window does
+// not freeze the title as a name.
+func (m *Model) promptWindowName(w domain.WindowView) {
+	id := w.ID
+	m.overlay = newPrompt("rename window", w.Name, func(name string) domain.Command {
+		return domain.RenameWindow{ID: id, Name: name}
+	})
 }
 
 // keepTheme switches to t for good, remembering it for the next run.

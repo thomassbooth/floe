@@ -60,6 +60,7 @@ type (
 		Focused   bool      `json:"focused,omitempty"`
 		Minimized bool      `json:"minimized,omitempty"`
 		Pinned    bool      `json:"pinned,omitempty"`
+		Name      string    `json:"name,omitempty"`
 		Dir       string    `json:"dir,omitempty"`
 	}
 	fileRect struct {
@@ -93,6 +94,7 @@ func (f *File) Load() ([]domain.SavedSession, error) {
 				Focused:   w.Focused,
 				Minimized: w.Minimized,
 				Pinned:    w.Pinned,
+				Name:      w.Name,
 				Dir:       w.Dir,
 			}
 			if w.Restore != nil {
@@ -116,6 +118,7 @@ func (f *File) Save(sessions []domain.SavedSession) error {
 				Focused:   w.Focused,
 				Minimized: w.Minimized,
 				Pinned:    w.Pinned,
+				Name:      w.Name,
 				Dir:       w.Dir,
 			}
 			if !w.Restore.Empty() {

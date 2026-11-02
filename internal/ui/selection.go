@@ -147,15 +147,22 @@ type click struct {
 	count int
 }
 
-// startSelection begins selecting at p in a window: a plain click starts
-// a drag, a double click takes the word there and a triple click the line.
-func (m *Model) startSelection(w domain.WindowView, p domain.Point) {
+// countClick remembers a click at p and returns which click of a run on that
+// cell it is: 1, 2 for a double click or 3 for a triple click, then 1 again.
+func (m *Model) countClick(p domain.Point) int {
 	now := time.Now()
 	count := 1
 	if prev := m.lastClick; prev.x == p.X && prev.y == p.Y && now.Sub(prev.at) < multiClickWindow {
 		count = prev.count%3 + 1
 	}
 	m.lastClick = click{at: now, x: p.X, y: p.Y, count: count}
+	return count
+}
+
+// startSelection begins selecting at p in a window: a plain click starts
+// a drag, a double click takes the word there and a triple click the line.
+func (m *Model) startSelection(w domain.WindowView, p domain.Point) {
+	count := m.countClick(p)
 
 	at := domain.Point{X: p.X - w.Content.X, Y: p.Y - w.Content.Y}
 	s := &selection{

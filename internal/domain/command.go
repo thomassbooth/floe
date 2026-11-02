@@ -122,6 +122,13 @@ type RestoreMinimized struct{}
 // has focus, or stops doing so.
 type TogglePin struct{}
 
+// RenameWindow gives a window a name that is shown instead of its title. An
+// empty Name clears it. A zero ID means the focused window.
+type RenameWindow struct {
+	ID   WindowID
+	Name string
+}
+
 // SnapWindow moves a window into a zone of the screen, remembering where it
 // was.
 type SnapWindow struct {
@@ -177,6 +184,7 @@ func (ToggleMaximize) command()   {}
 func (MinimizeWindow) command()   {}
 func (RestoreMinimized) command() {}
 func (TogglePin) command()        {}
+func (RenameWindow) command()     {}
 func (CloseWindow) command()      {}
 func (KillSession) command()      {}
 func (SendMouse) command()        {}

@@ -159,10 +159,14 @@ const pinMarker = "◆"
 
 // windowLabel names a window in its title and on its tab.
 func windowLabel(w domain.WindowView) string {
-	if w.Pinned {
-		return fmt.Sprintf("%d %s %s", w.ID, pinMarker, w.Title)
+	name := w.Name
+	if name == "" {
+		name = w.Title
 	}
-	return fmt.Sprintf("%d %s", w.ID, w.Title)
+	if w.Pinned {
+		return fmt.Sprintf("%d %s %s", w.ID, pinMarker, name)
+	}
+	return fmt.Sprintf("%d %s", w.ID, name)
 }
 
 // allMinimized reports whether the session has windows but shows none.

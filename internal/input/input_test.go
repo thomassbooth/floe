@@ -108,6 +108,8 @@ func TestSessionBindings(t *testing.T) {
 		{prefix, nil, Prefix},
 		{char('$'), ActionRenameSession, Normal},
 		{prefix, nil, Prefix},
+		{char(','), ActionRenameWindow, Normal},
+		{prefix, nil, Prefix},
 		{char(')'), ActionNextSession, Normal},
 		{prefix, nil, Prefix},
 		{char('d'), ActionDetach, Normal},

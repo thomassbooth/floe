@@ -28,7 +28,7 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 		return
 	}
 	if p.Y == m.statusBarRow() {
-		m.statusBarClick(p.X, mouse.Button)
+		m.statusBarClick(p, mouse.Button)
 		return
 	}
 	t, ok := m.targetAt(p.X, p.Y)
@@ -62,8 +62,11 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	case partMinimize:
 		m.backend.Apply(domain.MinimizeWindow{ID: id})
 	case partTitle:
-		if arranging {
+		switch {
+		case arranging:
 			m.drag = m.moveDrag(t.window, p)
+		case m.countClick(p) == 2:
+			m.promptWindowName(t.window)
 		}
 	case partEdge:
 		if arranging {
@@ -115,8 +118,10 @@ func (m Model) arranging() bool {
 
 // statusBarClick handles a click on the status bar. A left click on the
 // session badge opens the session switcher and one on a window's tab
-// focuses that window; a middle click on a tab closes the window.
-func (m *Model) statusBarClick(x int, button tea.MouseButton) {
+// focuses that window, while a second one asks for a new name for it; a
+// middle click on a tab closes the window.
+func (m *Model) statusBarClick(p domain.Point, button tea.MouseButton) {
+	x := p.X
 	if x >= m.width {
 		return
 	}
@@ -136,6 +141,9 @@ func (m *Model) statusBarClick(x int, button tea.MouseButton) {
 		switch button {
 		case tea.MouseLeft:
 			m.focus(tab.window.ID)
+			if m.countClick(p) == 2 {
+				m.promptWindowName(tab.window)
+			}
 		case tea.MouseMiddle:
 			m.backend.Apply(domain.CloseWindow{ID: tab.window.ID})
 		}

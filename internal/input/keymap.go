@@ -35,6 +35,7 @@ func DefaultKeymap() Keymap {
 			{Name: "minimize", Keys: []domain.Key{char('m')}, Command: domain.MinimizeWindow{}, Group: "Windows", Help: "minimize"},
 			{Name: "restore", Keys: []domain.Key{char('M')}, Command: domain.RestoreMinimized{}, Group: "Windows", Help: "restore"},
 			{Name: "pin", Keys: []domain.Key{char('p')}, Command: domain.TogglePin{}, Group: "Windows", Help: "pin"},
+			{Name: "rename-window", Keys: []domain.Key{char(',')}, Action: ActionRenameWindow, Group: "Windows", Help: "rename window"},
 			{Name: "close", Keys: []domain.Key{char('x')}, Command: domain.CloseWindow{}, Group: "Windows", Help: "close"},
 			{Name: "focus-next", Command: domain.CycleFocus{Delta: 1}, Group: "Windows", Help: "next window"},
 			{Name: "focus-prev", Command: domain.CycleFocus{Delta: -1}, Group: "Windows", Help: "previous window"},

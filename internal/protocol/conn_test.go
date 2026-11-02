@@ -70,6 +70,7 @@ func TestEveryCommandCrosses(t *testing.T) {
 		domain.MinimizeWindow{ID: 3},
 		domain.RestoreMinimized{},
 		domain.TogglePin{},
+		domain.RenameWindow{ID: 3, Name: "build"},
 	}
 	if len(samples) != len(commands) {
 		t.Fatalf("%d samples for %d registered commands", len(samples), len(commands))
@@ -88,7 +89,7 @@ func TestEveryEventCrosses(t *testing.T) {
 		Name:    "main",
 		Area:    domain.Rect{W: 80, H: 23},
 		Windows: []domain.WindowView{{
-			ID: 1, Pane: 7, Title: "zsh", Busy: true, Bell: true,
+			ID: 1, Pane: 7, Title: "zsh", Name: "build", Busy: true, Bell: true,
 			Frame:   domain.Rect{W: 40, H: 23},
 			Content: domain.Rect{X: 1, Y: 1, W: 38, H: 21},
 			Focused: true, Maximized: true, Minimized: true, Pinned: true,

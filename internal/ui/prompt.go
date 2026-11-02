@@ -86,6 +86,10 @@ func (p *prompt) draw(m Model, scr uv.Screen) (*tea.Cursor, bool) {
 		hint = bar.Foreground(t.Error).Render("✗ " + p.err + " ")
 	}
 	cursor := lipgloss.Width(label) + lipgloss.Width(text)
+	// The hint gives way to long text, but a reason to fix it stays in view.
+	if p.err == "" && cursor+lipgloss.Width(hint)+1 > width {
+		hint = ""
+	}
 
 	gap := max(width-lipgloss.Width(label)-lipgloss.Width(text)-lipgloss.Width(hint), 1)
 	line := ansi.Truncate(label+bar.Render(text+strings.Repeat(" ", gap))+hint, width, "")

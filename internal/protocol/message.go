@@ -8,7 +8,7 @@ import "github.com/thomassbooth/floe/internal/domain"
 
 // Version is the version of the messages below. A client and server only
 // talk when theirs match.
-const Version = 2
+const Version = 3
 
 // Message is anything sent over a connection.
 type Message interface {

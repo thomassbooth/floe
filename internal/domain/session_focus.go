@@ -1,9 +1,14 @@
 package domain
 
-import "slices"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
 
 // This file holds what a session knows about each window apart from where
-// it is: focus, minimizing, pinning, titles and the busy and bell marks.
+// it is: focus, minimizing, pinning, titles, names and the busy and bell
+// marks.
 
 // SetTitle changes a window's title. It reports whether it changed.
 func (s *Session) SetTitle(id WindowID, title string) bool {
@@ -13,6 +18,17 @@ func (s *Session) SetTitle(id WindowID, title string) bool {
 	}
 	w.Title = title
 	return true
+}
+
+// RenameWindow gives a window a name, which is shown instead of its title
+// until it is cleared with an empty name. Space around the name is dropped.
+func (s *Session) RenameWindow(id WindowID, name string) error {
+	w, ok := s.windows[id]
+	if !ok {
+		return fmt.Errorf("rename window %d: %w", id, ErrUnknownWindow)
+	}
+	w.Name = strings.TrimSpace(name)
+	return nil
 }
 
 // Focused returns the window with focus.
