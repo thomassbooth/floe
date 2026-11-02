@@ -117,9 +117,10 @@ func (s *Session) Snap(id WindowID, zone Zone) bool {
 
 // Tidy snaps every window into a layout that fills the screen: Tile for
 // the number of windows. Each window goes to the nearest free spot, so a
-// rough arrangement keeps its shape. It reports whether anything changed.
+// rough arrangement keeps its shape. Pinned windows stay where they are, over
+// the layout. It reports whether anything changed.
 func (s *Session) Tidy() bool {
-	ids := s.visible()
+	ids := slices.DeleteFunc(s.visible(), func(id WindowID) bool { return s.windows[id].Pinned })
 	spots := Tile(len(ids), s.area)
 
 	type pair struct {

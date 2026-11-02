@@ -568,3 +568,118 @@ func TestServerSavesMinimizedWindows(t *testing.T) {
 		t.Fatalf("focused = %d, want 1", snap.Focused)
 	}
 }
+
+// drawOrder returns the windows shown, back to front.
+func drawOrder(s *Session) []WindowID {
+	var ids []WindowID
+	for _, w := range s.Snapshot().Windows {
+		if !w.Minimized {
+			ids = append(ids, w.ID)
+		}
+	}
+	return ids
+}
+
+func TestSessionPinnedWindowStaysAboveTheFocusedOne(t *testing.T) {
+	s := newSession(t, Right, Right)
+	s.Focus(1)
+	if !s.TogglePin() {
+		t.Fatal("pinning should change the window")
+	}
+	s.Focus(2)
+	s.Focus(3)
+	if got := drawOrder(s); !slices.Equal(got, []WindowID{2, 3, 1}) {
+		t.Fatalf("draw order = %v, want the pinned window 1 last", got)
+	}
+	if focusedID(t, s) != 3 {
+		t.Fatalf("focused = %d, want 3: pinning does not take focus", focusedID(t, s))
+	}
+
+	s.Focus(1)
+	s.TogglePin()
+	s.Focus(2)
+	if got := drawOrder(s); !slices.Equal(got, []WindowID{3, 1, 2}) {
+		t.Fatalf("after unpinning, draw order = %v, want the focused window last", got)
+	}
+}
+
+func TestSessionPinnedWindowsStackAmongThemselves(t *testing.T) {
+	s := newSession(t, Right, Right)
+	s.Focus(1)
+	s.TogglePin()
+	s.Focus(2)
+	s.TogglePin()
+	s.Focus(3)
+	if got := drawOrder(s); !slices.Equal(got, []WindowID{3, 1, 2}) {
+		t.Fatalf("draw order = %v", got)
+	}
+	s.Focus(1)
+	if got := drawOrder(s); !slices.Equal(got, []WindowID{3, 2, 1}) {
+		t.Fatalf("focusing a pinned window should raise it over the other: %v", got)
+	}
+}
+
+func TestSessionPinnedWindowFillingTheScreenDoesNotHideOthers(t *testing.T) {
+	s := newSession(t, Right)
+	s.TogglePin()
+	s.ToggleMaximize(2)
+	s.Focus(1)
+	if got := drawOrder(s); !slices.Equal(got, []WindowID{2, 1}) {
+		t.Fatalf("draw order = %v, want the focused window in front", got)
+	}
+	// It stays pinned, and floats again once it is put back.
+	s.ToggleMaximize(2)
+	if got := drawOrder(s); !slices.Equal(got, []WindowID{1, 2}) {
+		t.Fatalf("draw order = %v, want the pinned window in front", got)
+	}
+}
+
+func TestSessionTidyPassesPinnedWindowsBy(t *testing.T) {
+	s := newSession(t, Right, Right)
+	s.Place(3, Rect{X: 5, Y: 5, W: 20, H: 10})
+	s.TogglePin()
+	s.Tidy()
+	got := frames(s)
+	if got[3] != (Rect{X: 5, Y: 5, W: 20, H: 10}) {
+		t.Fatalf("the pinned window moved to %+v", got[3])
+	}
+	if got[1].W+got[2].W != screen.W || got[1].H != screen.H {
+		t.Fatalf("the others should fill the screen: %+v", got)
+	}
+}
+
+func TestSessionPinnedNeighborKeepsItsSizeWhenAWindowCloses(t *testing.T) {
+	s := newSession(t, Right)
+	before := frames(s)[1]
+	s.Focus(1)
+	s.TogglePin()
+	if err := s.CloseWindow(2); err != nil {
+		t.Fatal(err)
+	}
+	if got := frames(s)[1]; got != before {
+		t.Fatalf("the pinned window went from %+v to %+v", before, got)
+	}
+}
+
+func TestSessionMinimizedWindowStaysPinned(t *testing.T) {
+	s := newSession(t, Right)
+	s.TogglePin()
+	s.Minimize(2)
+	if s.TogglePin() && focusedID(t, s) != 1 {
+		t.Fatal("minimizing should move focus to window 1")
+	}
+	s.TogglePin() // window 1 back as it was
+	s.RestoreMinimized()
+	view, _ := s.Snapshot().FocusedWindow()
+	if view.ID != 2 || !view.Pinned {
+		t.Fatalf("window 2 should come back pinned: %+v", view)
+	}
+}
+
+func TestSessionTogglePinWithoutWindows(t *testing.T) {
+	s := NewSession(1, "empty")
+	s.SetArea(screen)
+	if s.TogglePin() {
+		t.Fatal("there is nothing to pin")
+	}
+}

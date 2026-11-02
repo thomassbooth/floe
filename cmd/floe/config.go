@@ -20,11 +20,16 @@ func clientOptions() ui.Options {
 	if cfg.Animations != nil {
 		animations = *cfg.Animations
 	}
+	dim := true
+	if cfg.DimUnfocused != nil {
+		dim = *cfg.DimUnfocused
+	}
 	return ui.Options{
-		Keymap:     km,
-		Prefs:      openPreferences(),
-		Animations: animations,
-		Notice:     configNotice(errs),
+		Keymap:       km,
+		Prefs:        openPreferences(),
+		Animations:   animations,
+		DimUnfocused: dim,
+		Notice:       configNotice(errs),
 	}
 }
 

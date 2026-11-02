@@ -118,6 +118,10 @@ type MinimizeWindow struct {
 // RestoreMinimized shows and focuses the most recently minimized window.
 type RestoreMinimized struct{}
 
+// TogglePin keeps the focused window above unpinned ones even when another
+// has focus, or stops doing so.
+type TogglePin struct{}
+
 // SnapWindow moves a window into a zone of the screen, remembering where it
 // was.
 type SnapWindow struct {
@@ -172,6 +176,7 @@ func (Tidy) command()             {}
 func (ToggleMaximize) command()   {}
 func (MinimizeWindow) command()   {}
 func (RestoreMinimized) command() {}
+func (TogglePin) command()        {}
 func (CloseWindow) command()      {}
 func (KillSession) command()      {}
 func (SendMouse) command()        {}

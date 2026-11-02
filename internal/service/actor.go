@@ -248,6 +248,10 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		if s.layout.restoreMinimized(sess) {
 			s.markDirty(sess.ID())
 		}
+	case domain.TogglePin:
+		if s.layout.togglePin(sess) {
+			s.markDirty(sess.ID())
+		}
 	case domain.SendKey:
 		return s.input.sendKey(sess, c.Window, c.Key)
 	case domain.SendMouse:

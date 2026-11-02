@@ -24,6 +24,8 @@ type SavedWindow struct {
 	Focused bool
 	// Minimized is set for a window that was minimized.
 	Minimized bool
+	// Pinned is set for a window kept above unpinned ones.
+	Pinned bool
 	// Pane is the pane the window showed when it was saved, so the caller
 	// can look up details such as its directory. It means nothing after a
 	// restart.
@@ -54,6 +56,7 @@ func (s *Session) save() SavedSession {
 			Restore:   s.restore[id],
 			Focused:   id == focus,
 			Minimized: s.isMinimized(id),
+			Pinned:    w.Pinned,
 			Pane:      w.Pane,
 		})
 	}
@@ -77,6 +80,7 @@ func (s *Server) RestoreSession(saved SavedSession, title string) (*Session, err
 		}
 		sess.lastWindow = sw.ID - 1
 		w := sess.add(title, s.NewPaneID(), sw.Frame)
+		sess.windows[w.ID].Pinned = sw.Pinned
 		if !sw.Restore.Empty() {
 			sess.restore[w.ID] = sw.Restore
 		}

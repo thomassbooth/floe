@@ -29,6 +29,8 @@ type WindowView struct {
 	Maximized bool
 	// Minimized is set for a window that is hidden until it is focused.
 	Minimized bool
+	// Pinned is set for a window kept above unpinned ones.
+	Pinned bool
 	// Restore is where a maximized or snapped window goes back to when
 	// restored or dragged away. It is empty for a free window.
 	Restore Rect

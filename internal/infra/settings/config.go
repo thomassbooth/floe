@@ -14,6 +14,8 @@ import (
 type Config struct {
 	// Animations moves windows smoothly when the layout changes.
 	Animations *bool
+	// DimUnfocused draws the text of windows without focus faintly.
+	DimUnfocused *bool
 }
 
 // ConfigPath returns where general settings live: floe.conf in Dir.
@@ -71,6 +73,13 @@ func ParseConfig(src string) (Config, []error) {
 				continue
 			}
 			cfg.Animations = &on
+		case "dim-unfocused":
+			on, ok := onOff(args)
+			if !ok {
+				fail("dim-unfocused takes on or off")
+				continue
+			}
+			cfg.DimUnfocused = &on
 		default:
 			fail("unknown setting %q", name)
 		}

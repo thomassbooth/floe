@@ -2,7 +2,6 @@ package ui
 
 import (
 	"cmp"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -118,7 +117,7 @@ func (m Model) statusTabs() []statusTab {
 	x := m.badgeWidth() + 1
 	tabs := make([]statusTab, len(windows))
 	for i, w := range windows {
-		label := fmt.Sprintf(" %d %s", w.ID, w.Title)
+		label := " " + windowLabel(w)
 		marker := ""
 		switch {
 		case w.Bell:

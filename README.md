@@ -17,6 +17,12 @@ your programs: run `floe` again and everything is where you left it.
   running. Its tab stays in the status bar, in italics, still showing when
   it is busy or rings the bell; click it or press `ctrl+b M` to bring the
   window back.
+- **Pinned windows.** Keep a small window, such as tests or logs, on top with
+  `ctrl+b p` while you work in the windows behind it. It shows a ◆ in its title
+  and tab, moves and resizes as usual, stays put when you tidy, and floats
+  over a maximized window.
+- **Focus you can see.** Windows without focus are dimmed, so the one you are
+  typing in stands out. Turn it off in `floe.conf`.
 - **Snapping.** Drop a window on the left or right edge to fill that half of
   the screen, or near the top or bottom of an edge for a quarter. `ctrl+b =` tidies every window
   into a layout that fills the screen.
@@ -125,6 +131,7 @@ twice to send `ctrl+b` itself to the program in the window.
 | `z` | Maximize the focused window, or put it back |
 | `m` | Minimize the focused window; its program keeps running |
 | `M` | Bring back the most recently minimized window |
+| `p` | Pin the focused window on top of the others, or unpin it |
 | `x` | Close the focused window |
 | `a` | Enter arrange mode |
 
@@ -155,7 +162,7 @@ windows without pressing the prefix each time.
 | `h` `j` `k` `l` or arrows | Move the focused window |
 | `H` `J` `K` `L` or shift+arrows | Resize the focused window |
 | `tab` / `shift+tab` | Focus the next or previous window |
-| `=` `z` `m` `M` | Tidy, maximize, minimize, restore |
+| `=` `z` `m` `M` `p` | Tidy, maximize, minimize, restore, pin |
 | `c` `\|` `-` `x` | New window, split, close |
 | `esc`, `enter`, `a` or `q` | Done |
 
@@ -203,11 +210,15 @@ style as `keybinds.conf`:
 ```sh
 # Windows jump into place instead of gliding.
 animations off
+
+# Draw windows without focus at full brightness.
+dim-unfocused off
 ```
 
 | Setting | Values | Default |
 |---|---|---|
 | `animations` | `on` or `off` | `on`, or `off` over SSH where frames can arrive late |
+| `dim-unfocused` | `on` or `off` | `on` |
 
 floe reads it each time you run `floe`. If a line is wrong, floe says which
 in the status bar and uses the defaults until it is fixed.
@@ -233,7 +244,7 @@ in the status bar and uses the defaults until it is fixed.
 |---|---|
 | `~/.config/floe/settings.json` | Your chosen theme |
 | `~/.config/floe/keybinds.conf` | Your own keys, if you write one |
-| `~/.config/floe/floe.conf` | Other settings, such as animations |
+| `~/.config/floe/floe.conf` | Other settings, such as animations and dimming |
 | `~/.local/state/floe/sessions.json` | Saved sessions, for after a restart |
 | `~/.local/state/floe/server.log` | What the server has to say |
 | `$TMPDIR/floe-<uid>/` | The server's socket, private to you |

@@ -3,7 +3,7 @@ package domain
 import "slices"
 
 // This file holds what a session knows about each window apart from where
-// it is: focus, minimizing, titles and the busy and bell marks.
+// it is: focus, minimizing, pinning, titles and the busy and bell marks.
 
 // SetTitle changes a window's title. It reports whether it changed.
 func (s *Session) SetTitle(id WindowID, title string) bool {
@@ -64,6 +64,17 @@ func (s *Session) RestoreMinimized() bool {
 		return false
 	}
 	return s.Focus(s.minimized[len(s.minimized)-1])
+}
+
+// TogglePin keeps the focused window above unpinned ones even when another
+// has focus, or stops doing so. It reports whether there was a window to pin.
+func (s *Session) TogglePin() bool {
+	id, ok := s.focused()
+	if !ok {
+		return false
+	}
+	s.windows[id].Pinned = !s.windows[id].Pinned
+	return true
 }
 
 // SetBusy marks whether a pane's program is busy printing. It reports

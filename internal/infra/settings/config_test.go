@@ -15,13 +15,17 @@ func TestParseConfig(t *testing.T) {
 	if cfg.Animations == nil || *cfg.Animations {
 		t.Fatalf("animations = %v, want off", cfg.Animations)
 	}
-	if cfg, _ := ParseConfig(""); cfg.Animations != nil {
-		t.Fatal("an empty file should leave animations unset")
+	if cfg, _ := ParseConfig(""); cfg.Animations != nil || cfg.DimUnfocused != nil {
+		t.Fatal("an empty file should leave every setting unset")
+	}
+	cfg, errs = ParseConfig("dim-unfocused off\n")
+	if errs != nil || cfg.DimUnfocused == nil || *cfg.DimUnfocused {
+		t.Fatalf("dim-unfocused = %v, %v, want off", cfg.DimUnfocused, errs)
 	}
 }
 
 func TestParseConfigReportsEveryLine(t *testing.T) {
-	_, errs := ParseConfig("animations maybe\nanimations\nwobble on\n")
+	_, errs := ParseConfig("animations maybe\nanimations\nwobble on\ndim-unfocused\n")
 	var got []string
 	for _, e := range errs {
 		got = append(got, e.Error())
@@ -30,6 +34,7 @@ func TestParseConfigReportsEveryLine(t *testing.T) {
 		"line 1: animations takes on or off",
 		"line 2: animations takes on or off",
 		`line 3: unknown setting "wobble"`,
+		"line 4: dim-unfocused takes on or off",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

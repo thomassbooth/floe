@@ -163,6 +163,8 @@ func TestServerSaveAndRestoreRoundTrip(t *testing.T) {
 	work.OpenWindow("top", Down, s.NewPaneID())
 	work.Minimize(3)
 	work.Snap(2, ZoneRight)
+	work.Focus(2)
+	work.TogglePin()
 	work.Focus(1)
 	other := mustCreate(t, s, "other")
 	other.SetArea(Rect{W: 100, H: 30})

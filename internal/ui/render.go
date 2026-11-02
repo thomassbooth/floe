@@ -26,11 +26,16 @@ func (m Model) render() (string, *tea.Cursor) {
 		}
 		w = m.drawnView(w)
 		m.drawFrame(canvas, w)
+		// The focused window can be under a pinned one, which hides its
+		// cursor along with the rest of it.
+		if cursor != nil && w.Frame.Contains(cursor.Position.X, cursor.Position.Y) {
+			cursor = nil
+		}
 		grid, ok := m.backend.Grid(w.Pane, m.scroll[w.Pane])
 		if !ok {
 			continue
 		}
-		drawGrid(canvas, w.Content, grid)
+		drawGrid(canvas, w.Content, grid, m.dim && !w.Focused)
 		m.drawSelection(canvas, w)
 		m.drawScrollMarker(canvas, w)
 		if w.Focused {
@@ -144,9 +149,20 @@ func (m Model) drawFrame(scr uv.Screen, w domain.WindowView) {
 	if w.Focused {
 		titleStyle = titleStyle.Foreground(m.theme.Accent).Bold(true)
 	}
-	title := ansi.Truncate(fmt.Sprintf(" %d %s ", w.ID, w.Title), room, "… ")
+	title := ansi.Truncate(" "+windowLabel(w)+" ", room, "… ")
 	area := uv.Rect(f.X+2, f.Y, lipgloss.Width(title), 1)
 	uv.NewStyledString(titleStyle.Render(title)).Draw(scr, area)
+}
+
+// pinMarker marks a pinned window in its title and on its tab.
+const pinMarker = "◆"
+
+// windowLabel names a window in its title and on its tab.
+func windowLabel(w domain.WindowView) string {
+	if w.Pinned {
+		return fmt.Sprintf("%d %s %s", w.ID, pinMarker, w.Title)
+	}
+	return fmt.Sprintf("%d %s", w.ID, w.Title)
 }
 
 // allMinimized reports whether the session has windows but shows none.
@@ -229,7 +245,10 @@ func (m Model) drawZone(scr uv.Screen, r domain.Rect) {
 
 // drawGrid copies a pane's screen into area. The grid may briefly differ in
 // size from the area while a resize reaches the pane, so both are clipped.
-func drawGrid(scr uv.Screen, area domain.Rect, g domain.Grid) {
+// With dim set the text is drawn faintly, which leaves the program's colors
+// to the terminal. Bold goes, since terminals treat bold and faint together
+// differently and some make the text brighter.
+func drawGrid(scr uv.Screen, area domain.Rect, g domain.Grid, dim bool) {
 	for y := range min(g.Size.H, area.H) {
 		for x := range min(g.Size.W, area.W) {
 			c := g.At(x, y)
@@ -239,6 +258,9 @@ func drawGrid(scr uv.Screen, area domain.Rect, g domain.Grid) {
 			uc := toUVCell(c)
 			if uc.Content == "" {
 				uc.Content = " "
+			}
+			if dim {
+				uc.Style.Attrs = uc.Style.Attrs&^uv.AttrBold | uv.AttrFaint
 			}
 			scr.SetCell(area.X+x, area.Y+y, &uc)
 		}

@@ -50,6 +50,8 @@ type Model struct {
 	// move under way, if any.
 	animate bool
 	anim    *animation
+	// dim draws the text of windows without focus faintly.
+	dim bool
 	// themeChosen is set once a theme was picked, now or in an earlier run,
 	// so the terminal's background no longer decides it.
 	themeChosen bool
@@ -92,6 +94,8 @@ type Options struct {
 	Prefs Preferences
 	// Animations moves windows smoothly when the layout changes.
 	Animations bool
+	// DimUnfocused draws the text of windows without focus faintly.
+	DimUnfocused bool
 	// Notice, such as a problem with the config, shows in the status bar
 	// until the first key.
 	Notice string
@@ -106,6 +110,7 @@ func New(backend Backend, o Options) Model {
 		keys:    input.NewMachine(o.Keymap),
 		prefs:   prefs,
 		animate: o.Animations,
+		dim:     o.DimUnfocused,
 		notice:  o.Notice,
 		theme:   theme.MustLookup(theme.Default),
 		scroll:  make(map[domain.PaneID]int),

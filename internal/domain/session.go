@@ -20,13 +20,16 @@ type Window struct {
 	// not the window has focus. Bell is set when it rang the bell while
 	// another window had focus; focusing it clears that.
 	Busy, Bell bool
+	// Pinned keeps the window above unpinned ones, focused or not.
+	Pinned bool
 }
 
 // Session is a named set of windows, where they are, and which one has
 // focus. Windows move and resize freely and may overlap; the focused window
-// is always on top. A minimized window keeps its frame and its program but
-// is not drawn, and focus, tidying and splitting pass it by. A session holds
-// no processes: the service starts and stops panes to match.
+// is on top of every window but the pinned ones, which stay in front of the
+// rest. A minimized window keeps its frame and its program but is not drawn,
+// and focus, tidying and splitting pass it by. A session holds no processes:
+// the service starts and stops panes to match.
 type Session struct {
 	id      SessionID
 	name    string
@@ -211,6 +214,9 @@ func (s *Session) coveringSide(gone Rect, side Direction) ([]WindowID, bool) {
 	}
 	var spans []span
 	for _, id := range s.visible() {
+		if s.windows[id].Pinned {
+			continue // it was placed by hand, so it keeps its size
+		}
 		f, _ := s.stack.Frame(id)
 		var touches bool
 		var sp span
@@ -293,6 +299,7 @@ func (s *Session) Snapshot() Snapshot {
 			Focused:   w.ID == focus,
 			Maximized: held && p.Frame == s.area,
 			Minimized: s.isMinimized(w.ID),
+			Pinned:    w.Pinned,
 			Restore:   restore,
 		})
 	}
@@ -331,9 +338,26 @@ func (s *Session) focused() (WindowID, bool) {
 	return 0, false
 }
 
-// visible returns the windows that are not minimized, back to front.
+// visible returns the windows that are not minimized, back to front: those
+// floating above the rest come last, each group in stacking order.
 func (s *Session) visible() []WindowID {
-	return slices.DeleteFunc(s.stack.IDs(), s.isMinimized)
+	var below, above []WindowID
+	for _, id := range slices.DeleteFunc(s.stack.IDs(), s.isMinimized) {
+		if s.floats(id) {
+			above = append(above, id)
+		} else {
+			below = append(below, id)
+		}
+	}
+	return slices.Concat(below, above)
+}
+
+// floats reports whether a window stays above the unpinned ones. A pinned
+// window filling the screen does not, or it would hide all of them for as
+// long as it stayed that size.
+func (s *Session) floats(id WindowID) bool {
+	f, _ := s.frame(id)
+	return s.windows[id].Pinned && f != s.area
 }
 
 func (s *Session) isMinimized(id WindowID) bool {

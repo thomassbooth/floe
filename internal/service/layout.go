@@ -101,6 +101,12 @@ func (l *layoutService) restoreMinimized(sess *domain.Session) bool {
 	return sess.RestoreMinimized()
 }
 
+// togglePin pins or unpins the focused window. It reports whether the layout
+// changed.
+func (l *layoutService) togglePin(sess *domain.Session) bool {
+	return sess.TogglePin()
+}
+
 // snap moves a window into a zone of the screen. It reports whether the
 // layout changed.
 func (l *layoutService) snap(sess *domain.Session, id domain.WindowID, zone domain.Zone) bool {
