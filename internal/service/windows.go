@@ -48,6 +48,18 @@ func (w *windowService) retitle(sess *domain.Session, pane domain.PaneID, title 
 	return ok && sess.SetTitle(win.ID, title)
 }
 
+// rename gives a window, or the focused one when id is zero, a name.
+func (w *windowService) rename(sess *domain.Session, id domain.WindowID, name string) error {
+	if id == 0 {
+		win, ok := sess.Focused()
+		if !ok {
+			return nil
+		}
+		id = win.ID
+	}
+	return sess.RenameWindow(id, name)
+}
+
 func focusedPane(sess *domain.Session) domain.PaneID {
 	if win, ok := sess.Focused(); ok {
 		return win.Pane

@@ -27,13 +27,14 @@ var rules = map[string]struct {
 	"internal/infra/settings":   {project: []string{"internal/infra/atomicfile"}},
 	"internal/infra/store":      {project: []string{"internal/domain", "internal/infra/atomicfile"}},
 	"internal/infra/socket":     {},
+	"internal/infra/opener":     {},
 	"internal/input":            {project: []string{"internal/domain"}},
 	"internal/protocol":         {project: []string{"internal/domain"}},
 	"internal/remote":           {project: []string{"internal/domain", "internal/protocol", "internal/queue"}},
 	"internal/service":          {project: []string{"internal/domain", "internal/queue"}},
 	"internal/infra/terminal":   {project: []string{"internal/domain", "internal/queue"}, thirdParty: true},
 	"internal/ui":               {project: []string{"internal/domain", "internal/input", "internal/theme"}, thirdParty: true},
-	"cmd/floe":                  {project: []string{"internal/domain", "internal/infra/settings", "internal/infra/socket", "internal/infra/store", "internal/infra/terminal", "internal/input", "internal/remote", "internal/service", "internal/ui"}, thirdParty: true},
+	"cmd/floe":                  {project: []string{"internal/domain", "internal/infra/opener", "internal/infra/settings", "internal/infra/socket", "internal/infra/store", "internal/infra/terminal", "internal/input", "internal/remote", "internal/service", "internal/ui"}, thirdParty: true},
 	"internal/archtest":         {},
 }
 

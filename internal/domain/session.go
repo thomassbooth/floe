@@ -22,6 +22,9 @@ type Window struct {
 	Busy, Bell bool
 	// Pinned keeps the window above unpinned ones, focused or not.
 	Pinned bool
+	// Name is what the user called the window. While it is set it is shown
+	// instead of Title, which goes on following the program.
+	Name string
 }
 
 // Session is a named set of windows, where they are, and which one has
@@ -292,6 +295,7 @@ func (s *Session) Snapshot() Snapshot {
 			ID:        w.ID,
 			Pane:      w.Pane,
 			Title:     w.Title,
+			Name:      w.Name,
 			Busy:      w.Busy,
 			Bell:      w.Bell,
 			Frame:     p.Frame,

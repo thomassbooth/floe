@@ -70,6 +70,7 @@ func TestEveryCommandCrosses(t *testing.T) {
 		domain.MinimizeWindow{ID: 3},
 		domain.RestoreMinimized{},
 		domain.TogglePin{},
+		domain.RenameWindow{ID: 3, Name: "build"},
 	}
 	if len(samples) != len(commands) {
 		t.Fatalf("%d samples for %d registered commands", len(samples), len(commands))
@@ -88,7 +89,7 @@ func TestEveryEventCrosses(t *testing.T) {
 		Name:    "main",
 		Area:    domain.Rect{W: 80, H: 23},
 		Windows: []domain.WindowView{{
-			ID: 1, Pane: 7, Title: "zsh", Busy: true, Bell: true,
+			ID: 1, Pane: 7, Title: "zsh", Name: "build", Busy: true, Bell: true,
 			Frame:   domain.Rect{W: 40, H: 23},
 			Content: domain.Rect{X: 1, Y: 1, W: 38, H: 21},
 			Focused: true, Maximized: true, Minimized: true, Pinned: true,
@@ -157,7 +158,10 @@ func TestGridsAndStatesCross(t *testing.T) {
 		},
 		Cursor:        domain.Point{X: 2},
 		CursorVisible: true,
+		Links:         []domain.Link{{URL: "https://example.com/a", ID: "x"}},
 	}
+	grid.Cells[0].Link = 1
+	grid.Cells[1].Link = 1
 	for _, m := range []Message{
 		Hello{Version: Version, Build: "abc"},
 		Welcome{Err: "different build", Release: "v1.2.3"},
@@ -260,6 +264,14 @@ func TestGridRepliesSurviveEdgeCases(t *testing.T) {
 			{Content: "👍", Width: 2, Style: domain.Style{Fg: domain.RGBColor(255, 255, 255)}},
 			{Content: "", Width: 0, Style: domain.Style{Fg: domain.RGBColor(255, 255, 255)}},
 		}, Cursor: domain.Point{X: -1, Y: 5}},
+		// Links that start, change and stop between cells, the first on the
+		// very first cell.
+		{Size: domain.Size{W: 4, H: 1}, Cells: []domain.Cell{
+			{Content: "a", Width: 1, Link: 1},
+			{Content: "b", Width: 1, Link: 2},
+			{Content: "c", Width: 1},
+			{Content: "d", Width: 1, Link: 2},
+		}, Links: []domain.Link{{URL: "https://a.example"}, {URL: "file:///b", ID: "é"}}},
 	} {
 		m := GridReply{ID: 1 << 40, Grid: g, OK: true}
 		if got := roundTrip(t, m); !reflect.DeepEqual(got, m) {
@@ -276,7 +288,9 @@ func TestGridRepliesRejectCorruptData(t *testing.T) {
 	for _, data := range [][]byte{
 		good[:len(good)-1],
 		append(good, 0),
-		{0, 0, 0, 0xfe, 0xff, 0xff, 0xff, 0x0f, 2, 0, 0}, // huge width
+		{0, 0, 0, 0xfe, 0xff, 0xff, 0xff, 0x0f, 2, 0, 0},                                      // huge width
+		{0, 0, 0, 2, 2, 0, 0, 0xff, 0xff, 0xff, 0xff, 0x0f},                                   // huge link count
+		{0, 0, 0, 2, 2, 0, 0, 0, cellBlank | cellStyle | cellLink, 0, 0, 0, 0, 0, 0, 0, 0, 1}, // link 1 of none
 	} {
 		var r GridReply
 		if err := r.GobDecode(data); err == nil {

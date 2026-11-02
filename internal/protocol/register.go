@@ -23,7 +23,7 @@ var (
 		domain.ToggleMaximize{}, domain.SnapWindow{}, domain.Tidy{},
 		domain.CloseWindow{}, domain.SendKey{}, domain.SendMouse{},
 		domain.Paste{}, domain.MinimizeWindow{}, domain.RestoreMinimized{},
-		domain.TogglePin{},
+		domain.TogglePin{}, domain.RenameWindow{},
 	}
 	events = []domain.Event{
 		domain.LayoutChanged{}, domain.SessionsChanged{}, domain.ClipboardSet{},

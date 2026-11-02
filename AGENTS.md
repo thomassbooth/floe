@@ -28,7 +28,7 @@ points to; run `shellcheck install.sh` after changing it.
 | `internal/ui` | Bubble Tea client: windows, status bar, overlays |
 | `internal/remote` | Bridges the `ui.Backend` port and the service over a Unix socket |
 | `internal/protocol` | Messages between client and server, gob encoded |
-| `internal/infra/*` | Adapters to the OS: PTYs, files, settings, the socket |
+| `internal/infra/*` | Adapters to the OS: PTYs, files, settings, the socket, opening links |
 | `internal/input`, `theme`, `queue` | Pure helpers |
 | `internal/archtest` | Fails the tests if an import breaks the layering |
 | `e2e` | Runs the real binary in a pseudo-terminal and checks the screen |

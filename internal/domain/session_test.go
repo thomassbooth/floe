@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"slices"
 	"testing"
 )
@@ -673,6 +674,35 @@ func TestSessionMinimizedWindowStaysPinned(t *testing.T) {
 	view, _ := s.Snapshot().FocusedWindow()
 	if view.ID != 2 || !view.Pinned {
 		t.Fatalf("window 2 should come back pinned: %+v", view)
+	}
+}
+
+func TestSessionRenameWindow(t *testing.T) {
+	s := newSession(t, Right)
+	s.SetTitle(1, "sh")
+	if err := s.RenameWindow(1, "  build "); err != nil {
+		t.Fatal(err)
+	}
+	s.SetTitle(1, "make")
+	view := s.Snapshot().Windows
+	var w WindowView
+	for _, v := range view {
+		if v.ID == 1 {
+			w = v
+		}
+	}
+	if w.Name != "build" || w.Title != "make" {
+		t.Fatalf("name = %q, title = %q: the title should go on following the program", w.Name, w.Title)
+	}
+
+	if err := s.RenameWindow(1, "   "); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.windows[1].Name; got != "" {
+		t.Fatalf("a blank name should clear it, got %q", got)
+	}
+	if err := s.RenameWindow(9, "x"); !errors.Is(err, ErrUnknownWindow) {
+		t.Fatalf("err = %v, want ErrUnknownWindow", err)
 	}
 }
 

@@ -507,6 +507,7 @@ func (p *pane) grid(scroll int) domain.Grid {
 	g.Cursor = domain.Point{X: cur.X, Y: cur.Y}
 
 	top := history - scroll // first row, counting history then screen
+	numbers := make(map[uv.Link]int)
 	for y := range h {
 		line := top + y
 		for x := range w {
@@ -516,10 +517,30 @@ func (p *pane) grid(scroll int) domain.Grid {
 			} else {
 				c = p.emu.CellAt(x, line-history)
 			}
-			g.Cells[y*w+x] = fromVTCell(c)
+			cell := fromVTCell(c)
+			if c != nil && !c.Link.IsZero() {
+				cell.Link = linkNumber(&g, numbers, c.Link)
+			}
+			g.Cells[y*w+x] = cell
 		}
 	}
 	return g
+}
+
+// linkNumber returns what a cell in g should hold for a link a program sent,
+// adding the link to the grid the first time it is seen. Links that are not
+// safe to pass on come back as 0, no link, and their text stays.
+func linkNumber(g *domain.Grid, numbers map[uv.Link]int, sent uv.Link) int {
+	n, seen := numbers[sent]
+	if seen {
+		return n
+	}
+	if link, ok := domain.NewLink(sent.URL, sent.Params); ok {
+		g.Links = append(g.Links, link)
+		n = len(g.Links)
+	}
+	numbers[sent] = n
+	return n
 }
 
 func (p *pane) kill() {

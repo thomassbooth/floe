@@ -52,6 +52,8 @@ type Model struct {
 	anim    *animation
 	// dim draws the text of windows without focus faintly.
 	dim bool
+	// openLink opens a link on the desktop; nil where there is no way to.
+	openLink func(url string) error
 	// themeChosen is set once a theme was picked, now or in an earlier run,
 	// so the terminal's background no longer decides it.
 	themeChosen bool
@@ -96,6 +98,9 @@ type Options struct {
 	Animations bool
 	// DimUnfocused draws the text of windows without focus faintly.
 	DimUnfocused bool
+	// OpenLink opens a link on the desktop. Nil means links cannot be opened
+	// from here, and following one copies it instead.
+	OpenLink func(url string) error
 	// Notice, such as a problem with the config, shows in the status bar
 	// until the first key.
 	Notice string
@@ -106,15 +111,16 @@ type Options struct {
 func New(backend Backend, o Options) Model {
 	prefs := o.Prefs
 	m := Model{
-		backend: backend,
-		keys:    input.NewMachine(o.Keymap),
-		prefs:   prefs,
-		animate: o.Animations,
-		dim:     o.DimUnfocused,
-		notice:  o.Notice,
-		theme:   theme.MustLookup(theme.Default),
-		scroll:  make(map[domain.PaneID]int),
-		seen:    make(map[domain.PaneID]int),
+		backend:  backend,
+		keys:     input.NewMachine(o.Keymap),
+		prefs:    prefs,
+		animate:  o.Animations,
+		dim:      o.DimUnfocused,
+		openLink: o.OpenLink,
+		notice:   o.Notice,
+		theme:    theme.MustLookup(theme.Default),
+		scroll:   make(map[domain.PaneID]int),
+		seen:     make(map[domain.PaneID]int),
 	}
 	if prefs != nil {
 		if name, ok := prefs.Theme(); ok {
@@ -167,7 +173,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backend.Apply(domain.Paste{Text: msg.Content})
 
 	case tea.MouseClickMsg:
-		m.mousePress(msg)
+		cmd := m.mousePress(msg)
+		return m, cmd
+
+	case linkOpenedMsg:
+		cmd := m.linkOpened(msg)
+		return m, cmd
 
 	case tea.MouseMotionMsg:
 		m.mouseMotion(msg)
@@ -257,6 +268,10 @@ func (m *Model) runAction(a input.Action) {
 		m.overlay = newPrompt("rename session", m.snap.Name, func(name string) domain.Command {
 			return domain.RenameSession{Name: name}
 		})
+	case input.ActionRenameWindow:
+		if w, ok := m.snap.FocusedWindow(); ok {
+			m.promptWindowName(w)
+		}
 	case input.ActionPrevSession:
 		m.cycleSession(-1)
 	case input.ActionNextSession:
@@ -264,6 +279,16 @@ func (m *Model) runAction(a input.Action) {
 	case input.ActionDetach:
 		m.DetachedFrom = m.snap.Name
 	}
+}
+
+// promptWindowName asks for a new name for a window. The prompt starts with
+// the name it has now, not its title, so that enter on an unnamed window does
+// not freeze the title as a name.
+func (m *Model) promptWindowName(w domain.WindowView) {
+	id := w.ID
+	m.overlay = newPrompt("rename window", w.Name, func(name string) domain.Command {
+		return domain.RenameWindow{ID: id, Name: name}
+	})
 }
 
 // keepTheme switches to t for good, remembering it for the next run.

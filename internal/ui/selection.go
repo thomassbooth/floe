@@ -30,6 +30,9 @@ type selection struct {
 	dragging bool
 	// whole is set for word and line selections, which are never empty.
 	whole bool
+	// link is what the press landed on, followed if the button is let go
+	// without having selected anything.
+	link *domain.Link
 }
 
 // ordered returns the selection's ends in reading order.
@@ -147,15 +150,22 @@ type click struct {
 	count int
 }
 
-// startSelection begins selecting at p in a window: a plain click starts
-// a drag, a double click takes the word there and a triple click the line.
-func (m *Model) startSelection(w domain.WindowView, p domain.Point) {
+// countClick remembers a click at p and returns which click of a run on that
+// cell it is: 1, 2 for a double click or 3 for a triple click, then 1 again.
+func (m *Model) countClick(p domain.Point) int {
 	now := time.Now()
 	count := 1
 	if prev := m.lastClick; prev.x == p.X && prev.y == p.Y && now.Sub(prev.at) < multiClickWindow {
 		count = prev.count%3 + 1
 	}
 	m.lastClick = click{at: now, x: p.X, y: p.Y, count: count}
+	return count
+}
+
+// startSelection begins selecting at p in a window: a plain click starts
+// a drag, a double click takes the word there and a triple click the line.
+func (m *Model) startSelection(w domain.WindowView, p domain.Point) {
+	count := m.countClick(p)
 
 	at := domain.Point{X: p.X - w.Content.X, Y: p.Y - w.Content.Y}
 	s := &selection{
@@ -188,15 +198,23 @@ func (s *selection) extendTo(p domain.Point) {
 		X: min(max(p.X-s.content.X, 0), s.content.W-1),
 		Y: min(max(p.Y-s.content.Y, 0), s.content.H-1),
 	}
+	// Having dragged away, coming back is changing your mind, not a click.
+	if s.head != s.anchor {
+		s.link = nil
+	}
 }
 
 // finishSelection copies the selected text when the button is let go. The
-// highlight stays until the next click or key.
+// highlight stays until the next click or key. A click that selected nothing
+// follows the link it landed on, if any.
 func (m *Model) finishSelection() tea.Cmd {
 	s := m.selection
 	s.dragging = false
 	if s.empty() {
 		m.selection = nil
+		if s.link != nil {
+			return m.followLink(*s.link)
+		}
 		return nil
 	}
 	g, ok := m.backend.Grid(s.pane, s.scroll)

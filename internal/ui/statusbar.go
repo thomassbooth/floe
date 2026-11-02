@@ -107,6 +107,10 @@ const (
 	bellMarker = "!"
 )
 
+// maxTabLabel is the most columns a tab's label takes, so one long name or
+// title leaves room for the other tabs and the right of the bar.
+const maxTabLabel = 24
+
 // statusTabs lays out the window tabs that follow the session badge, in
 // window order. Drawing and mouse clicks both use it, so a click always
 // lands on the tab drawn there.
@@ -117,7 +121,7 @@ func (m Model) statusTabs() []statusTab {
 	x := m.badgeWidth() + 1
 	tabs := make([]statusTab, len(windows))
 	for i, w := range windows {
-		label := " " + windowLabel(w)
+		label := ansi.Truncate(" "+windowLabel(w), maxTabLabel, "…")
 		marker := ""
 		switch {
 		case w.Bell:

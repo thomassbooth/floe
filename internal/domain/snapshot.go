@@ -18,6 +18,9 @@ type WindowView struct {
 	ID    WindowID
 	Pane  PaneID
 	Title string
+	// Name is what the user called the window, shown instead of Title. It is
+	// empty until they do.
+	Name string
 	// Busy marks a window whose program keeps printing, and Bell one that
 	// rang the bell while another had focus.
 	Busy, Bell bool

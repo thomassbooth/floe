@@ -38,6 +38,8 @@ const (
 	ActionSessionSwitcher
 	// ActionRenameSession asks for a new name for the current session.
 	ActionRenameSession
+	// ActionRenameWindow asks for a new name for the focused window.
+	ActionRenameWindow
 	// ActionPrevSession and ActionNextSession cycle through sessions.
 	ActionPrevSession
 	ActionNextSession

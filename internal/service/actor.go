@@ -252,6 +252,11 @@ func (s *Service) apply(client domain.ClientID, cmd domain.Command) error {
 		if s.layout.togglePin(sess) {
 			s.markDirty(sess.ID())
 		}
+	case domain.RenameWindow:
+		if err := s.windows.rename(sess, c.ID, c.Name); err != nil {
+			return err
+		}
+		s.markDirty(sess.ID())
 	case domain.SendKey:
 		return s.input.sendKey(sess, c.Window, c.Key)
 	case domain.SendMouse:

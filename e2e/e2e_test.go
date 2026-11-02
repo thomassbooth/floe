@@ -83,6 +83,8 @@ type options struct {
 	// animate leaves floe.conf to the test. Otherwise animations are
 	// turned off, so checks of a layout never see windows on the way to it.
 	animate bool
+	// env is added to floe's environment, after everything else.
+	env []string
 }
 
 func launchWith(t *testing.T, o options) *term {
@@ -122,6 +124,7 @@ func launchWith(t *testing.T, o options) *term {
 		"XDG_STATE_HOME="+o.state,
 		"XDG_RUNTIME_DIR="+o.runtime,
 	)
+	env = append(env, o.env...)
 	if o.binary == "" {
 		o.binary = binary
 	}

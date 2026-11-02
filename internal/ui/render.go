@@ -159,10 +159,14 @@ const pinMarker = "◆"
 
 // windowLabel names a window in its title and on its tab.
 func windowLabel(w domain.WindowView) string {
-	if w.Pinned {
-		return fmt.Sprintf("%d %s %s", w.ID, pinMarker, w.Title)
+	name := w.Name
+	if name == "" {
+		name = w.Title
 	}
-	return fmt.Sprintf("%d %s", w.ID, w.Title)
+	if w.Pinned {
+		return fmt.Sprintf("%d %s %s", w.ID, pinMarker, name)
+	}
+	return fmt.Sprintf("%d %s", w.ID, name)
 }
 
 // allMinimized reports whether the session has windows but shows none.
@@ -249,6 +253,7 @@ func (m Model) drawZone(scr uv.Screen, r domain.Rect) {
 // to the terminal. Bold goes, since terminals treat bold and faint together
 // differently and some make the text brighter.
 func drawGrid(scr uv.Screen, area domain.Rect, g domain.Grid, dim bool) {
+	links := uvLinks(g.Links)
 	for y := range min(g.Size.H, area.H) {
 		for x := range min(g.Size.W, area.W) {
 			c := g.At(x, y)
@@ -256,6 +261,9 @@ func drawGrid(scr uv.Screen, area domain.Rect, g domain.Grid, dim bool) {
 				continue
 			}
 			uc := toUVCell(c)
+			if c.Link > 0 && c.Link < len(links) {
+				uc.Link = links[c.Link]
+			}
 			if uc.Content == "" {
 				uc.Content = " "
 			}
