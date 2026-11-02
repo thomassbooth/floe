@@ -187,10 +187,8 @@ func TestClickCopiesAFileLinkRatherThanRunningIt(t *testing.T) {
 
 	x, y := tm.find("label-2 after")
 	tm.click(x, y)
+	tm.waitCopied("file:///tmp/evil.command")
 	tm.waitFor("copied link")
-	if text := tm.copied(); text != "file:///tmp/evil.command" {
-		t.Fatalf("clipboard = %q", text)
-	}
 	if _, err := os.Stat(opened); err == nil {
 		t.Fatal("a file link must not be opened")
 	}
@@ -299,10 +297,8 @@ func TestCtrlClickCopiesAFileLinkRatherThanRunningIt(t *testing.T) {
 
 	x, y := tm.find("label-2 after")
 	tm.ctrlClick(x, y)
+	tm.waitCopied("file:///tmp/evil.command")
 	tm.waitFor("copied link")
-	if text := tm.copied(); text != "file:///tmp/evil.command" {
-		t.Fatalf("clipboard = %q", text)
-	}
 	if _, err := os.Stat(opened); err == nil {
 		t.Fatal("a file link must not be opened")
 	}
@@ -319,10 +315,8 @@ func TestCtrlClickOverSSHCopiesTheLink(t *testing.T) {
 	// Opening it here would start a browser on the wrong machine.
 	x, y := tm.find("label-2 after")
 	tm.ctrlClick(x, y)
+	tm.waitCopied("https://example.com/far")
 	tm.waitFor("copied link")
-	if text := tm.copied(); text != "https://example.com/far" {
-		t.Fatalf("clipboard = %q", text)
-	}
 	if _, err := os.Stat(opened); err == nil {
 		t.Fatal("the link must not open on the remote machine")
 	}

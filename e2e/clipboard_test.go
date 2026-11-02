@@ -27,7 +27,9 @@ func TestDragSelectsAndCopiesText(t *testing.T) {
 	tm := launch(t, 80, 24)
 	tm.waitFor(" 1 sh ")
 	tm.waitPrompts(1)
-	tm.typeLine("clear; printf 'alpha beta gamma\\ndelta epsilon\\n'")
+	// The last word is worked out by the shell, so the command line as typed,
+	// which is on the screen until clear runs, cannot match it.
+	tm.typeLine("clear; printf 'alpha beta gamma\\ndelta %s\\n' epsilon")
 	tm.waitFor("delta epsilon")
 	// After clear: row 1 is "alpha beta gamma", row 2 "delta epsilon";
 	// the window's content starts at column 1.
@@ -46,7 +48,7 @@ func TestDoubleAndTripleClickSelectWordAndLine(t *testing.T) {
 	tm := launch(t, 80, 24)
 	tm.waitFor(" 1 sh ")
 	tm.waitPrompts(1)
-	tm.typeLine("clear; printf 'one ~/path/to/file three\\n'")
+	tm.typeLine("clear; printf 'one ~/path/to/file %s\\n' three")
 	tm.waitFor("one ~/path/to/file three")
 
 	tm.click(10, 1)
