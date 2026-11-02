@@ -25,6 +25,10 @@ your programs: run `floe` again and everything is where you left it.
   give it a name with `ctrl+b ,` or a double-click on its title bar or tab.
   The name stays through anything the program does and comes back after a
   restart.
+- **Hyperlinks.** Links that programs print, such as from `ls --hyperlink` or
+  `delta`, reach your terminal, which can open them. A click also opens one
+  from inside floe, or a ctrl+click in a program that uses the mouse itself.
+  Over SSH, or for a link to a local file, it copies the link instead.
 - **Focus you can see.** Windows without focus are dimmed, so the one you are
   typing in stands out. Turn it off in `floe.conf`.
 - **Snapping.** Drop a window on the left or right edge to fill that half of
@@ -243,6 +247,8 @@ in the status bar and uses the defaults until it is fixed.
 | Drag over text | Select it and copy it to the clipboard |
 | Double- / triple-click | Select a word / a line |
 | Double-click a title bar or tab | Name that window |
+| Click a link in the focused window | Open it, or copy it if it is a local file or you are on SSH |
+| Ctrl+click a link | The same, in any window, even if its program uses the mouse |
 
 ## Files
 

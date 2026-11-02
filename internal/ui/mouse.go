@@ -20,30 +20,41 @@ type capture struct {
 	button  domain.MouseButton
 }
 
-func (m *Model) mousePress(msg tea.MouseClickMsg) {
+// mousePress acts on a press. It returns a command when that takes some doing
+// outside the model, such as following a link.
+func (m *Model) mousePress(msg tea.MouseClickMsg) tea.Cmd {
 	mouse := msg.Mouse()
 	p := domain.Point{X: mouse.X, Y: mouse.Y}
 	m.selection, m.info = nil, ""
 	if !m.pressOnOverlay(p) {
-		return
+		return nil
 	}
 	if p.Y == m.statusBarRow() {
 		m.statusBarClick(p, mouse.Button)
-		return
+		return nil
 	}
 	t, ok := m.targetAt(p.X, p.Y)
 	if !ok {
-		return
+		return nil
 	}
 	id := t.window.ID
+	// A plain click on a link opens it when it comes back up, in case it turns
+	// into a drag. Ctrl+click opens it at once, and wins over a program that
+	// wants the mouse, so links work in full-screen programs too.
+	if t.part == partContent && !m.arranging() && mouse.Button == tea.MouseLeft && mouse.Mod.Contains(tea.ModCtrl) {
+		if link, ok := m.linkAt(t.window, p); ok {
+			m.keys.Reset()
+			return m.followLink(link)
+		}
+	}
 	if t.part == partContent && m.wantsMouse(t.window) {
 		m.focus(id)
 		m.capture = &capture{window: id, content: t.window.Content, button: mouseButtons[mouse.Button]}
 		m.forward(m.capture, domain.MousePress, mouse)
-		return
+		return nil
 	}
 	if mouse.Button != tea.MouseLeft {
-		return
+		return nil
 	}
 	m.focus(id)
 
@@ -54,6 +65,11 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 	case partContent:
 		if !m.arranging() {
 			m.startSelection(t.window, p)
+			// The click that brings a window forward does only that, since
+			// you may not have read what is under it yet.
+			if link, ok := m.linkAt(t.window, p); ok && t.window.Focused {
+				m.selection.link = &link
+			}
 		}
 	case partClose:
 		m.backend.Apply(domain.CloseWindow{ID: id})
@@ -73,6 +89,7 @@ func (m *Model) mousePress(msg tea.MouseClickMsg) {
 			m.drag = resizeDrag(t.window, t.edges, p)
 		}
 	}
+	return nil
 }
 
 func (m *Model) mouseMotion(msg tea.MouseMotionMsg) {

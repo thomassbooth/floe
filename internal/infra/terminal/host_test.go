@@ -3,6 +3,7 @@ package terminal
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,40 @@ func TestHostRunsShellAndTypesKeys(t *testing.T) {
 	if got := h.TakeChanged(); len(got) != 1 || got[0] != 1 {
 		t.Fatalf("changed panes = %v, want [1]", got)
 	}
+}
+
+func TestHostKeepsLinksProgramsPrint(t *testing.T) {
+	h := newTestHost(t)
+	if err := h.Spawn(1, domain.Size{W: 60, H: 10}, ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { h.Kill(1) })
+
+	// Two cells of one link, one of another that is not safe, one of none.
+	cmd := `printf '\033]8;id=a;https://example.com\033\\%s\033]8;;javascript:x\033\\%s\033]8;;\033\\%s\n' a$((1+1)) b c`
+	for _, r := range cmd {
+		h.SendKey(1, domain.Key{Code: r, Text: string(r)})
+	}
+	h.SendKey(1, domain.Key{Code: domain.KeyEnter})
+	g := waitForText(t, h, 1, "a2bc")
+
+	if want := []domain.Link{{URL: "https://example.com", ID: "a"}}; !slices.Equal(g.Links, want) {
+		t.Fatalf("links = %+v, want %+v", g.Links, want)
+	}
+	for y := range g.Size.H {
+		for x := range g.Size.W {
+			if g.At(x, y).Content != "a" || g.At(x+1, y).Content != "2" {
+				continue
+			}
+			for i, want := range []int{1, 1, 0, 0} {
+				if got := g.At(x+i, y).Link; got != want {
+					t.Errorf("cell %d of a2bc has link %d, want %d", i, got, want)
+				}
+			}
+			return
+		}
+	}
+	t.Fatalf("a2bc is not on screen:\n%s", gridText(g))
 }
 
 func TestHostResizeReachesTheShell(t *testing.T) {

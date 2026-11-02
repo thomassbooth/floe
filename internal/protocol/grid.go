@@ -10,14 +10,16 @@ import (
 
 // Screens are most of the traffic, and gob spends many bytes on each cell,
 // so a GridReply is encoded by hand. Cells are written in order; a cell's
-// style is only written when it differs from the cell before, which in
-// terminal text it rarely does.
+// style or link is only written when it differs from the cell before, which
+// in terminal text it rarely does. The grid's links come before the cells,
+// which refer to them by number.
 
 // Cell flags.
 const (
 	cellStyle = 1 << iota // a style follows
 	cellBlank             // the content is a single space
 	cellWidth             // the width is not 1 and follows
+	cellLink              // a link number follows
 )
 
 // maxGridCells bounds a decoded grid, so a corrupt message cannot make the
@@ -37,11 +39,20 @@ func (r GridReply) GobEncode() ([]byte, error) {
 	for _, n := range []int{g.Size.W, g.Size.H, g.Cursor.X, g.Cursor.Y} {
 		b = binary.AppendVarint(b, int64(n))
 	}
+	b = binary.AppendUvarint(b, uint64(len(g.Links)))
+	for _, l := range g.Links {
+		b = appendString(b, l.URL)
+		b = appendString(b, l.ID)
+	}
 	var style domain.Style
+	link := 0
 	for i, c := range g.Cells {
 		var flags byte
 		if i == 0 || c.Style != style {
 			flags |= cellStyle
+		}
+		if c.Link != link {
+			flags |= cellLink
 		}
 		if c.Content == " " {
 			flags |= cellBlank
@@ -54,12 +65,15 @@ func (r GridReply) GobEncode() ([]byte, error) {
 			b = binary.AppendVarint(b, int64(c.Width))
 		}
 		if flags&cellBlank == 0 {
-			b = binary.AppendUvarint(b, uint64(len(c.Content)))
-			b = append(b, c.Content...)
+			b = appendString(b, c.Content)
 		}
 		if flags&cellStyle != 0 {
 			b = appendStyle(b, c.Style)
 			style = c.Style
+		}
+		if flags&cellLink != 0 {
+			b = binary.AppendUvarint(b, uint64(c.Link))
+			link = c.Link
 		}
 	}
 	return b, nil
@@ -79,8 +93,23 @@ func (r *GridReply) GobDecode(data []byte) error {
 	if g.Size.W < 0 || g.Size.H < 0 || g.Size.W*g.Size.H > maxGridCells {
 		return fmt.Errorf("bad grid size %dx%d", g.Size.W, g.Size.H)
 	}
+	// Each link takes at least two bytes, which bounds a corrupt count.
+	links := d.uvarint()
+	if d.err != nil {
+		return d.err
+	}
+	if links > uint64(len(d.b))/2 {
+		return fmt.Errorf("bad link count %d", links)
+	}
+	if links > 0 {
+		g.Links = make([]domain.Link, links)
+	}
+	for i := range g.Links {
+		g.Links[i] = domain.Link{URL: d.string(), ID: d.string()}
+	}
 	g.Cells = make([]domain.Cell, g.Size.W*g.Size.H)
 	var style domain.Style
+	link := 0
 	for i := range g.Cells {
 		c := &g.Cells[i]
 		flags := d.byte()
@@ -97,6 +126,14 @@ func (r *GridReply) GobDecode(data []byte) error {
 			style = d.style()
 		}
 		c.Style = style
+		if flags&cellLink != 0 {
+			n := d.uvarint()
+			if n > links {
+				return fmt.Errorf("bad link number %d of %d", n, links)
+			}
+			link = int(n)
+		}
+		c.Link = link
 		if d.err != nil {
 			return d.err
 		}
@@ -116,6 +153,11 @@ func appendBool(b []byte, v bool) []byte {
 		return append(b, 1)
 	}
 	return append(b, 0)
+}
+
+func appendString(b []byte, s string) []byte {
+	b = binary.AppendUvarint(b, uint64(len(s)))
+	return append(b, s...)
 }
 
 func appendStyle(b []byte, s domain.Style) []byte {

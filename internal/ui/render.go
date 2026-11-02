@@ -253,6 +253,7 @@ func (m Model) drawZone(scr uv.Screen, r domain.Rect) {
 // to the terminal. Bold goes, since terminals treat bold and faint together
 // differently and some make the text brighter.
 func drawGrid(scr uv.Screen, area domain.Rect, g domain.Grid, dim bool) {
+	links := uvLinks(g.Links)
 	for y := range min(g.Size.H, area.H) {
 		for x := range min(g.Size.W, area.W) {
 			c := g.At(x, y)
@@ -260,6 +261,9 @@ func drawGrid(scr uv.Screen, area domain.Rect, g domain.Grid, dim bool) {
 				continue
 			}
 			uc := toUVCell(c)
+			if c.Link > 0 && c.Link < len(links) {
+				uc.Link = links[c.Link]
+			}
 			if uc.Content == "" {
 				uc.Content = " "
 			}

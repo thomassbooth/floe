@@ -40,6 +40,10 @@ type Cell struct {
 	Content string
 	Width   int
 	Style   Style
+	// Link is the cell's place in its grid's Links, counting from 1, or 0 for
+	// no link. A link usually spans many cells and a URL can be long, so the
+	// grid holds each one once.
+	Link int
 }
 
 // PaneState is what a client needs to know about a pane to scroll it and
@@ -60,6 +64,16 @@ type Grid struct {
 	Cells         []Cell // row-major, len == Size.W * Size.H
 	Cursor        Point
 	CursorVisible bool
+	// Links are the hyperlinks the cells refer to.
+	Links []Link
+}
+
+// LinkOf returns the hyperlink on a cell of the grid, if it has one.
+func (g Grid) LinkOf(c Cell) (Link, bool) {
+	if c.Link < 1 || c.Link > len(g.Links) {
+		return Link{}, false
+	}
+	return g.Links[c.Link-1], true
 }
 
 // At returns the cell at x, y. Out-of-range positions return a blank cell.

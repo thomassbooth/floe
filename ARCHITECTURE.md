@@ -17,10 +17,12 @@ flowchart LR
         input["<b>input</b><br/>prefix key, arrange mode,<br/>your own keys"]
         theme["<b>theme</b><br/>colors"]
         settings[("<b>settings</b><br/>settings.json,<br/>floe.conf, keybinds.conf")]
+        opener["<b>opener</b><br/>opens links<br/>on the desktop"]
         rclient["<b>remote.Client</b><br/>stands in for the service"]
         ui --> input
         ui --> theme
         ui --> settings
+        ui -- "OpenLink option" --> opener
         ui -- "ui.Backend port" --> rclient
     end
 
@@ -64,6 +66,7 @@ flowchart TB
         store["<b>store</b>"]
         settings["<b>settings</b>"]
         socket["<b>socket</b>"]
+        opener["<b>opener</b>"]
     end
 
     subgraph core["Core"]
@@ -78,7 +81,7 @@ flowchart TB
         queue["<b>queue</b>"]
     end
 
-    cmd --> ui & remote & service & terminal & store & settings & socket
+    cmd --> ui & remote & service & terminal & store & settings & socket & opener
     ui --> input & theme & domain
     remote --> protocol & queue & domain
     terminal --> domain & queue
@@ -93,7 +96,7 @@ flowchart TB
     classDef helperStyle fill:#fef3c7,stroke:#d97706,color:#451a03
     class service,domain coreStyle
     class ui,remote inStyle
-    class terminal,store,settings,socket outStyle
+    class terminal,store,settings,socket,opener outStyle
     class protocol,input,theme,queue helperStyle
 ```
 
@@ -102,7 +105,7 @@ flowchart TB
 | Domain | `domain` | What sessions and windows are, and the rules for them |
 | Service | `service` | Runs the domain: one actor goroutine, per-responsibility services, ports |
 | Adapters in | `ui`, `remote` | Drive the service: the terminal UI, and the socket bridge |
-| Adapters out | `terminal`, `store`, `settings`, `socket` | Implement ports with the OS: PTYs, files, sockets |
+| Adapters out | `terminal`, `store`, `settings`, `socket`, `opener` | Implement ports with the OS: PTYs, files, sockets, the desktop |
 | Helpers | `protocol`, `input`, `theme`, `queue` | Pure building blocks |
 | Root | `cmd/floe` | `floe` runs the client, `floe server` the server |
 

@@ -30,6 +30,9 @@ type selection struct {
 	dragging bool
 	// whole is set for word and line selections, which are never empty.
 	whole bool
+	// link is what the press landed on, followed if the button is let go
+	// without having selected anything.
+	link *domain.Link
 }
 
 // ordered returns the selection's ends in reading order.
@@ -195,15 +198,23 @@ func (s *selection) extendTo(p domain.Point) {
 		X: min(max(p.X-s.content.X, 0), s.content.W-1),
 		Y: min(max(p.Y-s.content.Y, 0), s.content.H-1),
 	}
+	// Having dragged away, coming back is changing your mind, not a click.
+	if s.head != s.anchor {
+		s.link = nil
+	}
 }
 
 // finishSelection copies the selected text when the button is let go. The
-// highlight stays until the next click or key.
+// highlight stays until the next click or key. A click that selected nothing
+// follows the link it landed on, if any.
 func (m *Model) finishSelection() tea.Cmd {
 	s := m.selection
 	s.dragging = false
 	if s.empty() {
 		m.selection = nil
+		if s.link != nil {
+			return m.followLink(*s.link)
+		}
 		return nil
 	}
 	g, ok := m.backend.Grid(s.pane, s.scroll)

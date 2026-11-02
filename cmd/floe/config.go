@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/thomassbooth/floe/internal/infra/opener"
 	"github.com/thomassbooth/floe/internal/infra/settings"
 	"github.com/thomassbooth/floe/internal/ui"
 )
@@ -24,7 +25,13 @@ func clientOptions() ui.Options {
 	if cfg.DimUnfocused != nil {
 		dim = *cfg.DimUnfocused
 	}
+	// Over SSH the desktop is at the other end, out of floe's reach.
+	var openLink func(string) error
+	if !overSSH() {
+		openLink = opener.Open
+	}
 	return ui.Options{
+		OpenLink:     openLink,
 		Keymap:       km,
 		Prefs:        openPreferences(),
 		Animations:   animations,
